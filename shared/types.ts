@@ -46,6 +46,8 @@ export interface TaskRow {
   actualFinish: string | null
   manualPercent: number | null
   notes: string | null
+  /** Person in charge (name or team). */
+  pic: string | null
   sortOrder: number
 }
 

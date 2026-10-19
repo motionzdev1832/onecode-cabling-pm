@@ -26,12 +26,15 @@ type Form = {
   actualFinish: string
   manualPercent: string
   notes: string
+  pic: string
+  picCascade: boolean
 }
 
 export default function TaskDetail({ taskId, scopeItems, onClose, onChanged }: Props) {
   const { isAdmin } = useAuth()
   const navigate = useNavigate()
   const { data, loading, error, reload } = useFetch<{ task: TaskView; logs: DailyLog[] }>(taskId ? `/api/tasks/${taskId}` : null)
+  const pics = useFetch<string[]>(taskId ? '/api/tasks/pics' : null)
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState<Form | null>(null)
   const [targets, setTargets] = useState<Record<number, string>>({})
@@ -77,6 +80,8 @@ export default function TaskDetail({ taskId, scopeItems, onClose, onChanged }: P
       actualFinish: t.actualFinish ?? '',
       manualPercent: t.manualPercent === null ? '' : String(t.manualPercent),
       notes: t.notes ?? '',
+      pic: t.pic ?? '',
+      picCascade: false,
     })
     const tg: Record<number, string> = {}
     for (const x of t.targets) tg[x.scopeItemId] = String(x.targetQty)
@@ -102,6 +107,8 @@ export default function TaskDetail({ taskId, scopeItems, onClose, onChanged }: P
         actualFinish: form.actualFinish || null,
         manualPercent: task.hasChildren || task.method === 'quantity' ? undefined : form.manualPercent === '' ? null : Number(form.manualPercent),
         notes: form.notes || null,
+        pic: form.pic.trim() || null,
+        picCascade: form.picCascade,
       })
       if (!task.hasChildren) {
         const list = scopeItems.map((s) => ({ scopeItemId: s.id, targetQty: Number(targets[s.id] || 0) }))
@@ -191,6 +198,7 @@ export default function TaskDetail({ taskId, scopeItems, onClose, onChanged }: P
           <div className="flex flex-wrap items-center gap-2 text-[13px] text-ink-2">
             {task.path && <span>{task.path}</span>}
             {task.floor && <span>· {floorLabel(task.floor)}</span>}
+            {task.pic && <span>· PIC {task.pic}</span>}
             <TaskStatusBadge status={task.status} late={task.late} behind={task.behind} />
           </div>
 
@@ -213,6 +221,7 @@ export default function TaskDetail({ taskId, scopeItems, onClose, onChanged }: P
               <Info label="Planned finish" value={fmtDate(task.plannedFinish)} />
               <Info label="Duration" value={`${fmtNum(task.durationDays)} days`} />
               <Info label="Floor" value={floorLabel(task.floor)} />
+              <Info label="PIC" value={task.pic ?? '—'} />
               <Info label="Actual start" value={fmtDate(task.actualStart)} />
               <Info label="Actual finish" value={fmtDate(task.actualFinish)} />
               {task.notes && (
@@ -234,6 +243,20 @@ export default function TaskDetail({ taskId, scopeItems, onClose, onChanged }: P
                   <option value="FL3">Floor 3</option>
                 </Select>
               </Field>
+              <Field label="PIC (person in charge)" hint="Name or team responsible for this task">
+                <Input list="pic-suggestions-detail" value={form.pic} onChange={(e) => setForm({ ...form, pic: e.target.value })} placeholder="e.g. Site lead A" />
+                <datalist id="pic-suggestions-detail">
+                  {(pics.data ?? []).map((p) => (
+                    <option key={p} value={p} />
+                  ))}
+                </datalist>
+              </Field>
+              {task.hasChildren && (
+                <label className="flex items-center gap-2 text-[13px] text-ink-2">
+                  <input type="checkbox" className="h-4 w-4 rounded border-line accent-accent" checked={form.picCascade} onChange={(e) => setForm({ ...form, picCascade: e.target.checked })} />
+                  Also set this PIC on all sub-tasks
+                </label>
+              )}
               <Field label="Duration (days)" hint="Used as the weight in roll-ups">
                 <Input type="number" min={0.5} step={0.5} value={form.durationDays} onChange={(e) => setForm({ ...form, durationDays: e.target.value })} disabled={task.hasChildren} />
               </Field>

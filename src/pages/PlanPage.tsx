@@ -25,6 +25,7 @@ export default function PlanPage() {
   const [floor, setFloor] = useState<'all' | 'FL2' | 'FL3'>('all')
   const [status, setStatus] = useState<StatusFilter>('all')
   const [q, setQ] = useState('')
+  const [pic, setPic] = useState<string>('all')
   const [selected, setSelected] = useState<number | null>(null)
   const today = localToday()
   const compact = useMediaQuery('(max-width: 639px)')
@@ -32,11 +33,12 @@ export default function PlanPage() {
 
   const filtered = useMemo(() => {
     const all = tasks.data ?? []
-    const hasFilter = floor !== 'all' || status !== 'all' || q.trim() !== ''
+    const hasFilter = floor !== 'all' || status !== 'all' || q.trim() !== '' || pic !== 'all'
     if (!hasFilter) return all
     const ql = q.trim().toLowerCase()
     const matches = (t: TaskView) => {
       if (floor !== 'all' && t.floor !== floor) return false
+      if (pic !== 'all' && (pic === '' ? !!t.pic : t.pic !== pic)) return false
       if (status === 'attention' ? !(t.late || t.behind) : status !== 'all' && t.status !== status) return false
       if (ql && !t.name.toLowerCase().includes(ql) && !t.path.toLowerCase().includes(ql)) return false
       return true
@@ -52,7 +54,8 @@ export default function PlanPage() {
       }
     }
     return all.filter((t) => keep.has(t.id))
-  }, [tasks.data, floor, status, q])
+  }, [tasks.data, floor, status, q, pic])
+  const pics = useMemo(() => [...new Set((tasks.data ?? []).map((t) => t.pic).filter((p): p is string => !!p))].sort(), [tasks.data])
 
   const toggle = (id: number) => setCollapsedArr((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
   const summaries = (tasks.data ?? []).filter((t) => t.hasChildren && t.parentId !== null).map((t) => t.id)
@@ -97,6 +100,15 @@ export default function PlanPage() {
           <option value="attention">Late or behind</option>
           <option value="done">Done</option>
         </Select>
+        <Select value={pic} onChange={(e) => setPic(e.target.value)} className="w-40">
+          <option value="all">All PICs</option>
+          <option value="">No PIC assigned</option>
+          {pics.map((p) => (
+            <option key={p} value={p}>
+              {p}
+            </option>
+          ))}
+        </Select>
         {view === 'gantt' && (
           <>
             <Segmented value={String(zoom)} onChange={(v) => setZoom(Number(v))} options={[{ value: '8', label: 'Month' }, { value: '14', label: 'Week' }, { value: '28', label: 'Day' }]} />
@@ -124,6 +136,7 @@ export default function PlanPage() {
               <tr>
                 <th className={th}>Task</th>
                 <th className={th}>Floor</th>
+                <th className={th}>PIC</th>
                 <th className={th}>Planned</th>
                 <th className={cls(th, 'text-right')}>Days</th>
                 <th className={cls(th, 'w-48')}>Progress</th>
@@ -138,6 +151,7 @@ export default function PlanPage() {
                     {t.name}
                   </td>
                   <td className={cls(td, 'text-ink-2')}>{floorLabel(t.floor)}</td>
+                  <td className={cls(td, 'text-ink-2')}>{t.pic ?? '—'}</td>
                   <td className={cls(td, 'whitespace-nowrap text-ink-2')}>
                     {fmtDate(t.plannedStart, { year: false })} – {fmtDate(t.plannedFinish, { year: false })}
                   </td>

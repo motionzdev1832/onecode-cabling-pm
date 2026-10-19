@@ -141,8 +141,9 @@ export default function Gantt({ tasks, today, collapsed, onToggle, onSelect, sel
                   ) : (
                     <span className="w-4 shrink-0" />
                   )}
-                  <span className={cls('min-w-0 flex-1 truncate', isSummary ? 'font-semibold text-ink' : 'text-ink')} title={t.name}>
+                  <span className={cls('min-w-0 flex-1 truncate', isSummary ? 'font-semibold text-ink' : 'text-ink')} title={t.pic ? `${t.name} · PIC ${t.pic}` : t.name}>
                     {shortName(t.name)}
+                    {t.pic && <span className="ml-1.5 font-normal text-ink-3">· {t.pic}</span>}
                   </span>
                   <span className={cls('tabular shrink-0 text-[11px]', t.status === 'done' ? 'text-good-text' : t.late ? 'text-critical-text' : t.behind ? 'text-serious-text' : 'text-ink-3')}>{Math.round(t.percent)}%</span>
                 </div>
@@ -194,6 +195,8 @@ export default function Gantt({ tasks, today, collapsed, onToggle, onSelect, sel
             </span>
             <span>Status</span>
             <span className="text-ink">{tip.task.late ? 'Late' : tip.task.behind ? 'Behind schedule' : taskStatusLabel[tip.task.status]}</span>
+            <span>PIC</span>
+            <span className="text-ink">{tip.task.pic ?? '—'}</span>
           </div>
         </div>
       )}

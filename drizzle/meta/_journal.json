@@ -15,6 +15,13 @@
       "when": 1792423537607,
       "tag": "0001_seed",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1792429104404,
+      "tag": "0002_task_pic",
+      "breakpoints": true
     }
   ]
 }

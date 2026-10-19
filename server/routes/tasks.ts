@@ -16,6 +16,18 @@ r.get('/', async (c) => {
   return c.json(buildTaskViews({ ...inputs, today: todayFrom(c) }))
 })
 
+/** Distinct PIC names, for autocomplete. */
+r.get('/pics', async (c) => {
+  const rows = await c.var.db
+    .select({ pic: tasks.pic })
+    .from(tasks)
+    .where(sql`${tasks.pic} is not null and ${tasks.pic} != ''`)
+    .groupBy(tasks.pic)
+    .orderBy(tasks.pic)
+    .all()
+  return c.json(rows.map((r) => r.pic))
+})
+
 r.get('/:id', async (c) => {
   const id = idParam(c)
   const inputs = await loadProgressInputs(c.var.db)
@@ -37,12 +49,15 @@ const taskPatch = z
     actualFinish: isoDate.nullable(),
     manualPercent: z.number().min(0).max(100).nullable(),
     notes: z.string().max(4000).nullable(),
+    pic: z.string().trim().max(80).nullable(),
+    /** When true, the PIC is also written to every descendant task. */
+    picCascade: z.boolean(),
   })
   .partial()
 
 r.put('/:id', requireAdmin, async (c) => {
   const id = idParam(c)
-  const body = await parseBody(c, taskPatch)
+  const { picCascade, ...body } = await parseBody(c, taskPatch)
   const existing = await c.var.db.select().from(tasks).where(eq(tasks.id, id)).get()
   if (!existing) throw new HTTPException(404, { message: 'Task not found' })
   const merged = { ...existing, ...body }
@@ -55,6 +70,22 @@ r.put('/:id', requireAdmin, async (c) => {
     throw new HTTPException(400, { message: 'Actual dates cannot be in the future' })
   }
   await c.var.db.update(tasks).set(body).where(eq(tasks.id, id))
+  if (picCascade && body.pic !== undefined) {
+    const all = await c.var.db.select({ id: tasks.id, parentId: tasks.parentId }).from(tasks).all()
+    const ids = new Set<number>([id])
+    let grew = true
+    while (grew) {
+      grew = false
+      for (const t of all) {
+        if (t.parentId !== null && ids.has(t.parentId) && !ids.has(t.id)) {
+          ids.add(t.id)
+          grew = true
+        }
+      }
+    }
+    ids.delete(id)
+    if (ids.size) await c.var.db.update(tasks).set({ pic: body.pic }).where(inArray(tasks.id, [...ids]))
+  }
   if (body.plannedStart || body.plannedFinish) await rollupSummaryDates(c.var.db)
   await logActivity(c, 'update', 'task', id, `Updated task "${existing.name}" (${Object.keys(body).join(', ')})`)
   const inputs = await loadProgressInputs(c.var.db)
@@ -68,6 +99,7 @@ r.post('/', requireAdmin, async (c) => {
       parentId: z.number().int().positive(),
       name: z.string().trim().min(1).max(200),
       floor: z.enum(['FL2', 'FL3']).nullable().optional(),
+      pic: z.string().trim().max(80).nullable().optional(),
       durationDays: z.number().positive().max(999),
       plannedStart: isoDate,
       plannedFinish: isoDate,
@@ -94,6 +126,7 @@ r.post('/', requireAdmin, async (c) => {
       level: parent.level + 1,
       isSummary: false,
       floor: body.floor ?? parent.floor,
+      pic: body.pic ?? parent.pic ?? null,
       durationDays: body.durationDays,
       plannedStart: body.plannedStart,
       plannedFinish: body.plannedFinish,

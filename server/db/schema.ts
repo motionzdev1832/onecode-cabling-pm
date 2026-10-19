@@ -53,6 +53,7 @@ export const tasks = sqliteTable(
     actualFinish: text('actual_finish'),
     manualPercent: real('manual_percent'),
     notes: text('notes'),
+    pic: text('pic'),
     sortOrder: integer('sort_order').notNull(),
   },
   (t) => [index('tasks_parent_idx').on(t.parentId)],

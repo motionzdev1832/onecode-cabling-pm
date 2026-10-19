@@ -26,6 +26,9 @@ export default function AddTaskModal({ parentId: fixedParent, onClose, onSaved }
   const [finish, setFinish] = useState(localToday())
   const [duration, setDuration] = useState('1')
   const [touchedFloor, setTouchedFloor] = useState(false)
+  const [pic, setPic] = useState('')
+  const [touchedPic, setTouchedPic] = useState(false)
+  const pics = useFetch<string[]>('/api/tasks/pics')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -44,12 +47,13 @@ export default function AddTaskModal({ parentId: fixedParent, onClose, onSaved }
   useEffect(() => {
     if (!parent) return
     if (!touchedFloor) setFloor(parent.floor ?? '')
+    if (!touchedPic) setPic(parent.pic ?? '')
     if (parent.parentId !== null) {
       setStart(parent.plannedStart)
       setFinish(parent.plannedStart)
       setDuration('1')
     }
-  }, [parent, touchedFloor])
+  }, [parent, touchedFloor, touchedPic])
 
   const onDates = (s: string, f: string) => {
     setStart(s)
@@ -69,6 +73,7 @@ export default function AddTaskModal({ parentId: fixedParent, onClose, onSaved }
         durationDays: Number(duration) || 1,
         plannedStart: start,
         plannedFinish: finish,
+        pic: pic.trim() || null,
       })
       onSaved(created)
     } catch (e) {
@@ -135,6 +140,22 @@ export default function AddTaskModal({ parentId: fixedParent, onClose, onSaved }
                 <option value="FL2">Floor 2</option>
                 <option value="FL3">Floor 3</option>
               </Select>
+            </Field>
+            <Field label="PIC (person in charge)" className="col-span-2">
+              <Input
+                list="pic-suggestions-add"
+                value={pic}
+                onChange={(e) => {
+                  setTouchedPic(true)
+                  setPic(e.target.value)
+                }}
+                placeholder="Name or team"
+              />
+              <datalist id="pic-suggestions-add">
+                {(pics.data ?? []).map((p) => (
+                  <option key={p} value={p} />
+                ))}
+              </datalist>
             </Field>
           </div>
           {start && finish && finish < start && <p className="text-xs text-critical-text">Planned finish must not be before planned start.</p>}

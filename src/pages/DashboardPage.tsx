@@ -196,7 +196,8 @@ function TaskList({ tasks, empty, onSelect, showPlanned }: { tasks: TaskView[]; 
               </div>
               <div className="truncate text-xs text-ink-3">
                 {t.path}
-                {t.floor ? ` · ${floorLabel(t.floor)}` : ''} · {fmtDate(t.plannedStart, { year: false })} – {fmtDate(t.plannedFinish, { year: false })}
+                {t.floor ? ` · ${floorLabel(t.floor)}` : ''}
+                {t.pic ? ` · ${t.pic}` : ''} · {fmtDate(t.plannedStart, { year: false })} – {fmtDate(t.plannedFinish, { year: false })}
               </div>
             </div>
             <div className="w-24 shrink-0">

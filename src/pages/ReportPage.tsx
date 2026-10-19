@@ -83,6 +83,7 @@ export default function ReportPage() {
                         <div className="text-xs text-ink-3">
                           {w.task.path}
                           {w.task.floor ? ` · ${floorLabel(w.task.floor)}` : ''}
+                          {w.task.pic ? ` · PIC ${w.task.pic}` : ''}
                         </div>
                       </td>
                       <td className="py-2 pr-3 text-ink-2">
@@ -201,7 +202,8 @@ function TaskRows({ tasks, empty, showPlanned }: { tasks: TaskView[]; empty: str
             <div className="truncate text-ink">{t.name}</div>
             <div className="truncate text-xs text-ink-3">
               {t.path}
-              {t.floor ? ` · ${floorLabel(t.floor)}` : ''} · {fmtDate(t.plannedStart, { year: false })} – {fmtDate(t.plannedFinish, { year: false })}
+              {t.floor ? ` · ${floorLabel(t.floor)}` : ''}
+              {t.pic ? ` · ${t.pic}` : ''} · {fmtDate(t.plannedStart, { year: false })} – {fmtDate(t.plannedFinish, { year: false })}
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
