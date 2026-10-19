@@ -7,5 +7,5 @@ pages_build_output_dir = "dist"
 binding = "DB"
 database_name = "oneqode-cabling-pm"
 # Replace with the id printed by: wrangler d1 create oneqode-cabling-pm
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "ac2fd206-7f75-4dc0-9a2c-b2c25730bd32"
 migrations_dir = "drizzle"
