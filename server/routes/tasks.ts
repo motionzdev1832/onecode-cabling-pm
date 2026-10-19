@@ -1,0 +1,163 @@
+import { Hono } from 'hono'
+import { HTTPException } from 'hono/http-exception'
+import { z } from 'zod'
+import { and, desc, eq, gt, inArray, sql } from 'drizzle-orm'
+import type { AppEnv } from '../env'
+import { dailyLogs, scopeItems, tasks, taskTargets } from '../db/schema'
+import { requireAdmin } from '../auth'
+import { idParam, loadProgressInputs, logActivity, logsWithItems, parseBody, rollupSummaryDates, todayFrom } from '../util'
+import { buildTaskViews } from '../../shared/progress'
+import { isoDate } from './project'
+
+const r = new Hono<AppEnv>()
+
+r.get('/', async (c) => {
+  const inputs = await loadProgressInputs(c.var.db)
+  return c.json(buildTaskViews({ ...inputs, today: todayFrom(c) }))
+})
+
+r.get('/:id', async (c) => {
+  const id = idParam(c)
+  const inputs = await loadProgressInputs(c.var.db)
+  const view = buildTaskViews({ ...inputs, today: todayFrom(c) }).find((t) => t.id === id)
+  if (!view) throw new HTTPException(404, { message: 'Task not found' })
+  const logRows = await c.var.db.select().from(dailyLogs).where(eq(dailyLogs.taskId, id)).orderBy(desc(dailyLogs.logDate), desc(dailyLogs.id)).all()
+  const logs = await logsWithItems(c.var.db, logRows)
+  return c.json({ task: view, logs })
+})
+
+const taskPatch = z
+  .object({
+    name: z.string().trim().min(1).max(200),
+    floor: z.enum(['FL2', 'FL3']).nullable(),
+    durationDays: z.number().positive().max(999),
+    plannedStart: isoDate,
+    plannedFinish: isoDate,
+    actualStart: isoDate.nullable(),
+    actualFinish: isoDate.nullable(),
+    manualPercent: z.number().min(0).max(100).nullable(),
+    notes: z.string().max(4000).nullable(),
+  })
+  .partial()
+
+r.put('/:id', requireAdmin, async (c) => {
+  const id = idParam(c)
+  const body = await parseBody(c, taskPatch)
+  const existing = await c.var.db.select().from(tasks).where(eq(tasks.id, id)).get()
+  if (!existing) throw new HTTPException(404, { message: 'Task not found' })
+  const merged = { ...existing, ...body }
+  if (merged.plannedFinish < merged.plannedStart) throw new HTTPException(400, { message: 'Planned finish must not be before planned start' })
+  if (merged.actualStart && merged.actualFinish && merged.actualFinish < merged.actualStart) {
+    throw new HTTPException(400, { message: 'Actual finish must not be before actual start' })
+  }
+  const today = todayFrom(c)
+  if ((body.actualStart && body.actualStart > today) || (body.actualFinish && body.actualFinish > today)) {
+    throw new HTTPException(400, { message: 'Actual dates cannot be in the future' })
+  }
+  await c.var.db.update(tasks).set(body).where(eq(tasks.id, id))
+  if (body.plannedStart || body.plannedFinish) await rollupSummaryDates(c.var.db)
+  await logActivity(c, 'update', 'task', id, `Updated task "${existing.name}" (${Object.keys(body).join(', ')})`)
+  const inputs = await loadProgressInputs(c.var.db)
+  return c.json(buildTaskViews({ ...inputs, today: todayFrom(c) }).find((t) => t.id === id))
+})
+
+r.post('/', requireAdmin, async (c) => {
+  const body = await parseBody(
+    c,
+    z.object({
+      parentId: z.number().int().positive(),
+      name: z.string().trim().min(1).max(200),
+      floor: z.enum(['FL2', 'FL3']).nullable().optional(),
+      durationDays: z.number().positive().max(999),
+      plannedStart: isoDate,
+      plannedFinish: isoDate,
+    }),
+  )
+  if (body.plannedFinish < body.plannedStart) throw new HTTPException(400, { message: 'Planned finish must not be before planned start' })
+  const parent = await c.var.db.select().from(tasks).where(eq(tasks.id, body.parentId)).get()
+  if (!parent) throw new HTTPException(404, { message: 'Parent task not found' })
+  // Insert after the parent's last descendant so the outline order stays intact.
+  const all = await c.var.db.select({ id: tasks.id, parentId: tasks.parentId, sortOrder: tasks.sortOrder }).from(tasks).orderBy(tasks.sortOrder).all()
+  const descendants = new Set<number>([parent.id])
+  for (const t of all) if (t.parentId !== null && descendants.has(t.parentId)) descendants.add(t.id)
+  const lastOrder = Math.max(...all.filter((t) => descendants.has(t.id)).map((t) => t.sortOrder))
+  await c.var.db.update(tasks).set({ sortOrder: sql`${tasks.sortOrder} + 1` }).where(gt(tasks.sortOrder, lastOrder))
+  const row = await c.var.db
+    .insert(tasks)
+    .values({
+      parentId: parent.id,
+      name: body.name,
+      level: parent.level + 1,
+      isSummary: false,
+      floor: body.floor ?? parent.floor,
+      durationDays: body.durationDays,
+      plannedStart: body.plannedStart,
+      plannedFinish: body.plannedFinish,
+      sortOrder: lastOrder + 1,
+    })
+    .returning()
+    .get()
+  if (!parent.isSummary) await c.var.db.update(tasks).set({ isSummary: true }).where(eq(tasks.id, parent.id))
+  await rollupSummaryDates(c.var.db)
+  await logActivity(c, 'create', 'task', row.id, `Added task "${row.name}" under "${parent.name}"`)
+  const inputs = await loadProgressInputs(c.var.db)
+  return c.json(buildTaskViews({ ...inputs, today: todayFrom(c) }).find((t) => t.id === row.id), 201)
+})
+
+r.delete('/:id', requireAdmin, async (c) => {
+  const id = idParam(c)
+  const row = await c.var.db.select().from(tasks).where(eq(tasks.id, id)).get()
+  if (!row) throw new HTTPException(404, { message: 'Task not found' })
+  if (row.parentId === null) throw new HTTPException(400, { message: 'The project root cannot be deleted' })
+  const kids = await c.var.db.select({ n: sql<number>`count(*)` }).from(tasks).where(eq(tasks.parentId, id)).get()
+  if ((kids?.n ?? 0) > 0) throw new HTTPException(409, { message: 'Delete or move the sub-tasks first' })
+  const logs = await c.var.db.select({ n: sql<number>`count(*)` }).from(dailyLogs).where(eq(dailyLogs.taskId, id)).get()
+  if ((logs?.n ?? 0) > 0) throw new HTTPException(409, { message: 'This task has daily log entries. Delete those first.' })
+  await c.var.db.delete(tasks).where(eq(tasks.id, id))
+  const siblings = await c.var.db.select({ n: sql<number>`count(*)` }).from(tasks).where(eq(tasks.parentId, row.parentId)).get()
+  if ((siblings?.n ?? 0) === 0) await c.var.db.update(tasks).set({ isSummary: false }).where(eq(tasks.id, row.parentId))
+  await rollupSummaryDates(c.var.db)
+  await logActivity(c, 'delete', 'task', id, `Deleted task "${row.name}"`)
+  return c.json({ ok: true })
+})
+
+// ---- Quantity targets (allocation of scope quantities to leaf tasks) ----
+
+const targetList = z.array(z.object({ scopeItemId: z.number().int().positive(), targetQty: z.number().min(0) }))
+
+r.put('/:id/targets', requireAdmin, async (c) => {
+  const id = idParam(c)
+  const body = await parseBody(c, targetList)
+  const task = await c.var.db.select().from(tasks).where(eq(tasks.id, id)).get()
+  if (!task) throw new HTTPException(404, { message: 'Task not found' })
+  const kids = await c.var.db.select({ n: sql<number>`count(*)` }).from(tasks).where(eq(tasks.parentId, id)).get()
+  if ((kids?.n ?? 0) > 0) throw new HTTPException(400, { message: 'Targets can only be set on leaf tasks' })
+  await c.var.db.delete(taskTargets).where(eq(taskTargets.taskId, id))
+  const rows = body.filter((t) => t.targetQty > 0).map((t) => ({ taskId: id, scopeItemId: t.scopeItemId, targetQty: t.targetQty }))
+  if (rows.length) await c.var.db.insert(taskTargets).values(rows)
+  await logActivity(c, 'update', 'task_targets', id, `Set quantity targets on "${task.name}"`)
+  const inputs = await loadProgressInputs(c.var.db)
+  return c.json(buildTaskViews({ ...inputs, today: todayFrom(c) }).find((t) => t.id === id))
+})
+
+/** Bulk matrix update: [{taskId, scopeItemId, targetQty}] — 0 removes the cell. */
+r.put('/allocation/bulk', requireAdmin, async (c) => {
+  const body = await parseBody(c, z.array(z.object({ taskId: z.number().int().positive(), scopeItemId: z.number().int().positive(), targetQty: z.number().min(0) })).max(5000))
+  if (body.length === 0) return c.json({ ok: true, updated: 0 })
+  const taskIds = [...new Set(body.map((b) => b.taskId))]
+  const parents = await c.var.db.select({ id: tasks.parentId }).from(tasks).where(inArray(tasks.parentId, taskIds)).all()
+  const summaryIds = new Set(parents.map((p) => p.id))
+  const bad = taskIds.find((t) => summaryIds.has(t))
+  if (bad) throw new HTTPException(400, { message: `Task ${bad} is a summary task; targets go on leaf tasks only` })
+  const itemIds = [...new Set(body.map((b) => b.scopeItemId))]
+  const items = await c.var.db.select({ id: scopeItems.id }).from(scopeItems).where(inArray(scopeItems.id, itemIds)).all()
+  if (items.length !== itemIds.length) throw new HTTPException(400, { message: 'Unknown scope item' })
+  for (const cell of body) {
+    await c.var.db.delete(taskTargets).where(and(eq(taskTargets.taskId, cell.taskId), eq(taskTargets.scopeItemId, cell.scopeItemId)))
+    if (cell.targetQty > 0) await c.var.db.insert(taskTargets).values(cell)
+  }
+  await logActivity(c, 'update', 'task_targets', null, `Updated quantity allocation (${body.length} cells)`)
+  return c.json({ ok: true, updated: body.length })
+})
+
+export default r

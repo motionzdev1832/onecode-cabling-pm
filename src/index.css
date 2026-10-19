@@ -1,0 +1,85 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'Noto Sans Thai', sans-serif;
+
+  /* Ink */
+  --color-ink: #141414;
+  --color-ink-2: #52514e;
+  --color-ink-3: #898781;
+
+  /* Lines & planes (white, clean) */
+  --color-line: #e6e5e1;
+  --color-line-2: #f0efec;
+  --color-plane: #f9f9f7;
+
+  /* Accent = data-viz slot 1 (blue), validated ramp */
+  --color-accent: #2a78d6;
+  --color-accent-2: #1c5cab;
+  --color-accent-soft: #cde2fb;
+  --color-accent-wash: #eef4fc;
+
+  /* Status (reserved, never used as series colors) */
+  --color-good: #0ca30c;
+  --color-good-text: #006300;
+  --color-good-soft: #e4f5e4;
+  --color-warn: #fab219;
+  --color-warn-text: #7a4d00;
+  --color-warn-soft: #fff3d6;
+  --color-serious: #ec835a;
+  --color-serious-text: #8a3a1a;
+  --color-serious-soft: #fde9e0;
+  --color-critical: #d03b3b;
+  --color-critical-text: #a12626;
+  --color-critical-soft: #fbe4e4;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: #ffffff;
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Native controls stay quiet */
+input[type='date']::-webkit-calendar-picker-indicator {
+  opacity: 0.6;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+}
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  body {
+    background: #fff;
+  }
+  main {
+    padding: 0 !important;
+  }
+  .print-break {
+    break-inside: avoid;
+  }
+}
+.print-only {
+  display: none;
+}
