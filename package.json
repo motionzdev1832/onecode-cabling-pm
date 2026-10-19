@@ -4,14 +4,14 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently -k -n web,api \"vite\" \"wrangler pages dev public --port 8788 --ip 127.0.0.1\"",
+    "dev": "concurrently -k -n web,api \"vite\" \"wrangler dev --port 8788 --ip 127.0.0.1 --assets public\"",
     "build": "tsc --noEmit -p tsconfig.json && vite build",
-    "preview": "wrangler pages dev dist --port 8788 --ip 127.0.0.1",
+    "preview": "wrangler dev --port 8788 --ip 127.0.0.1",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "db:generate": "drizzle-kit generate",
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
     "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
-    "deploy": "npm run build && wrangler pages deploy dist"
+    "deploy": "npm run build && wrangler deploy"
   },
   "dependencies": {
     "date-fns": "^4.4.0",

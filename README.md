@@ -1,8 +1,8 @@
 # OneQode AI Farm Cabling · PM Control
 
 Progress-control web app for the AI Farm cabling and equipment installation project
-(Nov 2026 – Mar 2027). Runs entirely on Cloudflare: Pages (static React app),
-Pages Functions (API) and D1 (SQLite database).
+(Nov 2026 – Mar 2027). Runs entirely on Cloudflare: one Worker serves the static React app
+(Workers Static Assets) and the API, with D1 (SQLite) as the database.
 
 ## What it does
 
@@ -32,7 +32,7 @@ Roles: **admin** (the PM: full edit) and **viewer** (client: read-only everywher
 ## Stack
 
 - Frontend: React 19, Vite, TypeScript, Tailwind CSS v4, Recharts, lucide icons
-- API: Hono on Cloudflare Pages Functions (`functions/api/[[route]].ts` → `server/`)
+- API: Hono inside the Worker (`server/worker.ts` → `server/app.ts`); non-API paths are served from static assets
 - Data: Cloudflare D1 via Drizzle ORM (`server/db/schema.ts`, migrations in `drizzle/`)
 - Shared progress engine used by the API: `shared/progress.ts`
 
@@ -48,7 +48,7 @@ Open http://localhost:5173. The first visit asks you to create the admin account
 
 To preview the production build locally: `npm run build && npm run preview` → http://127.0.0.1:8788.
 
-## Deploy to Cloudflare Pages
+## Deploy to Cloudflare Workers
 
 One-time setup (needs `npx wrangler login` in an interactive terminal):
 
@@ -62,24 +62,23 @@ npm run db:migrate:remote
 
 Then either:
 
-**A. Git integration (recommended):** push this repo to GitHub, then in the Cloudflare dashboard
-→ Workers & Pages → Create → Pages → Connect to Git. Build settings:
+**A. Git integration (what this project uses):** push this repo to GitHub, then in the
+Cloudflare dashboard → Workers & Pages → Create → Workers → Import a repository. Build settings:
 
 - Build command: `npm run build`
-- Build output directory: `dist`
+- Deploy command: `npx wrangler deploy`
 - Node version: picked up from `.node-version` (24)
 
-The D1 binding is read from `wrangler.toml` automatically (`pages_build_output_dir` is set),
-so no dashboard binding configuration is needed. Every push to the production branch redeploys;
-other branches get preview URLs.
+Bindings (D1, static assets) come from `wrangler.toml`, so nothing needs configuring in the
+dashboard. Every push to `main` builds and deploys; other branches get preview URLs.
 
 **B. Direct upload from this machine:**
 
 ```bash
-npm run deploy                # builds and runs `wrangler pages deploy dist`
+npm run deploy                # builds and runs `wrangler deploy`
 ```
 
-After the first deploy, open the `*.pages.dev` URL (or your custom domain) and create the admin
+After the first deploy, open the `*.workers.dev` URL (or your custom domain) and create the admin
 account. Then add viewer accounts under **Users**.
 
 ### Later schema changes
@@ -91,11 +90,11 @@ Edit `server/db/schema.ts`, run `npm run db:generate`, then `npm run db:migrate:
 ## Project layout
 
 ```
-functions/api/[[route]].ts   Pages Function entry → Hono app
+server/worker.ts             Worker entry: /api → Hono app, everything else → static assets
 server/                      API (auth, routes, Drizzle schema)
 shared/                      Types, date helpers, progress engine (shared with the client)
 src/                         React app (pages, components, lib)
 drizzle/                     SQL migrations (0000 schema, 0001 seed)
 scripts/                     Seed data + generator
-wrangler.toml                Pages + D1 configuration
+wrangler.toml                Worker, static assets and D1 configuration
 ```

@@ -1,11 +1,22 @@
 name = "oneqode-cabling-pm"
+main = "server/worker.ts"
 compatibility_date = "2026-10-01"
 compatibility_flags = ["nodejs_compat"]
-pages_build_output_dir = "dist"
+workers_dev = true
+
+# Built React app. Unknown paths fall back to index.html (client-side routing);
+# /api/* always goes to the Worker.
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*"]
 
 [[d1_databases]]
 binding = "DB"
 database_name = "oneqode-cabling-pm"
-# Replace with the id printed by: wrangler d1 create oneqode-cabling-pm
 database_id = "ac2fd206-7f75-4dc0-9a2c-b2c25730bd32"
 migrations_dir = "drizzle"
+
+[observability]
+enabled = true
