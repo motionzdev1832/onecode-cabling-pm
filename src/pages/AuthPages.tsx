@@ -10,9 +10,9 @@ function AuthShell({ title, subtitle, children }: { title: string; subtitle: str
     <div className="flex min-h-full items-center justify-center bg-plane px-4 py-10">
       <div className="w-full max-w-sm">
         <div className="mb-6 flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent text-sm font-bold text-white">OQ</span>
+          <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent text-sm font-bold text-white">OC</span>
           <div>
-            <div className="text-base font-semibold text-ink">OneQode AI Farm Cabling</div>
+            <div className="text-base font-semibold text-ink">OneCode AI Farm Cabling</div>
             <div className="text-xs text-ink-3">PM Control</div>
           </div>
         </div>

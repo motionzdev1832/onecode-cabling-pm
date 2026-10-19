@@ -47,7 +47,7 @@ export default function Layout() {
       {/* Desktop sidebar */}
       <aside className="no-print hidden w-60 shrink-0 flex-col border-r border-line bg-white md:flex">
         <div className="flex h-14 items-center gap-2 border-b border-line-2 px-4">
-          <span className="flex h-7 w-7 items-center justify-center rounded-md bg-accent text-xs font-bold text-white">OQ</span>
+          <span className="flex h-7 w-7 items-center justify-center rounded-md bg-accent text-xs font-bold text-white">OC</span>
           <div className="leading-tight">
             <div className="text-sm font-semibold text-ink">AI Farm Cabling</div>
             <div className="text-[11px] text-ink-3">PM Control</div>
@@ -78,7 +78,7 @@ export default function Layout() {
         {/* Mobile header */}
         <header className="no-print sticky top-0 z-30 flex h-12 items-center justify-between border-b border-line bg-white/95 px-4 backdrop-blur md:hidden">
           <div className="flex items-center gap-2">
-            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-accent text-[10px] font-bold text-white">OQ</span>
+            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-accent text-[10px] font-bold text-white">OC</span>
             <span className="text-sm font-semibold text-ink">AI Farm Cabling</span>
           </div>
           <span className="text-xs text-ink-3">{user?.displayName}</span>

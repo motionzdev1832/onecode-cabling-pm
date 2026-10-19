@@ -1,4 +1,4 @@
-# OneQode AI Farm Cabling · PM Control
+# OneCode AI Farm Cabling · PM Control
 
 Progress-control web app for the AI Farm cabling and equipment installation project
 (Nov 2026 – Mar 2027). Runs entirely on Cloudflare: one Worker serves the static React app

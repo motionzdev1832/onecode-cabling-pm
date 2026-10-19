@@ -1,10 +1,10 @@
-// Source of truth for the baseline plan (from "OneQode AI Farm Cabling Work Plan.pdf")
+// Source of truth for the baseline plan (from "OneCode AI Farm Cabling Work Plan.pdf")
 // and the scope list. Run `node scripts/gen-seed.mjs` to regenerate drizzle/0001_seed.sql.
 
 export const project = {
   id: 1,
-  name: 'OneQode AI Farm Cabling',
-  client: 'OneQode',
+  name: 'OneCode AI Farm Cabling',
+  client: 'OneCode',
   location: '',
   plannedStart: '2026-11-16',
   plannedFinish: '2027-03-31',
@@ -26,7 +26,7 @@ export const scopeItems = [
 // [id, parentId, level, isSummary, floor, durationDays, plannedStart, plannedFinish, name]
 const r = (a, b) => `Cabling work from Rack row ${a} to Rack row ${b}`
 export const tasks = [
-  [1, null, 0, 1, null, 98, '2026-11-16', '2027-03-31', 'OneQode AI Farm Cabling'],
+  [1, null, 0, 1, null, 98, '2026-11-16', '2027-03-31', 'OneCode AI Farm Cabling'],
   [2, 1, 1, 0, null, 5, '2026-11-16', '2026-11-20', 'Prepare the cables and equipment for the job. Label the cables.'],
   [3, 1, 1, 1, 'FL2', 58, '2026-11-20', '2027-02-09', 'Cabling work FL.2'],
   [4, 3, 2, 1, 'FL2', 49, '2026-11-20', '2027-01-27', 'Fiber MPO'],
