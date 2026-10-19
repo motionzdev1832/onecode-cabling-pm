@@ -1,4 +1,4 @@
-name = "oneqode-cabling-pm"
+name = "onecode-cabling-pm"
 main = "server/worker.ts"
 compatibility_date = "2026-10-01"
 compatibility_flags = ["nodejs_compat"]
@@ -14,8 +14,8 @@ run_worker_first = ["/api/*"]
 
 [[d1_databases]]
 binding = "DB"
-database_name = "oneqode-cabling-pm"
-database_id = "ac2fd206-7f75-4dc0-9a2c-b2c25730bd32"
+database_name = "onecode-cabling-pm"
+database_id = "edcc1c1e-6dde-4868-a0c1-2b5f148fc041"
 migrations_dir = "drizzle"
 
 [observability]

@@ -54,7 +54,7 @@ One-time setup (needs `npx wrangler login` in an interactive terminal):
 
 ```bash
 # 1. Create the production database and copy its id into wrangler.toml (database_id)
-npx wrangler d1 create oneqode-cabling-pm
+npx wrangler d1 create onecode-cabling-pm
 
 # 2. Apply the schema + seed to the remote database
 npm run db:migrate:remote
