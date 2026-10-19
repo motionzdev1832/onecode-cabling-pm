@@ -76,6 +76,10 @@ r.post('/', requireAdmin, async (c) => {
   if (body.plannedFinish < body.plannedStart) throw new HTTPException(400, { message: 'Planned finish must not be before planned start' })
   const parent = await c.var.db.select().from(tasks).where(eq(tasks.id, body.parentId)).get()
   if (!parent) throw new HTTPException(404, { message: 'Parent task not found' })
+  if (!parent.isSummary) {
+    const parentLogs = await c.var.db.select({ n: sql<number>`count(*)` }).from(dailyLogs).where(eq(dailyLogs.taskId, parent.id)).get()
+    if ((parentLogs?.n ?? 0) > 0) throw new HTTPException(409, { message: 'That task already has daily log entries, so it cannot become a summary row. Add the new task next to it instead.' })
+  }
   // Insert after the parent's last descendant so the outline order stays intact.
   const all = await c.var.db.select({ id: tasks.id, parentId: tasks.parentId, sortOrder: tasks.sortOrder }).from(tasks).orderBy(tasks.sortOrder).all()
   const descendants = new Set<number>([parent.id])
@@ -97,7 +101,10 @@ r.post('/', requireAdmin, async (c) => {
     })
     .returning()
     .get()
-  if (!parent.isSummary) await c.var.db.update(tasks).set({ isSummary: true }).where(eq(tasks.id, parent.id))
+  if (!parent.isSummary) {
+    await c.var.db.update(tasks).set({ isSummary: true }).where(eq(tasks.id, parent.id))
+    await c.var.db.delete(taskTargets).where(eq(taskTargets.taskId, parent.id))
+  }
   await rollupSummaryDates(c.var.db)
   await logActivity(c, 'create', 'task', row.id, `Added task "${row.name}" under "${parent.name}"`)
   const inputs = await loadProgressInputs(c.var.db)

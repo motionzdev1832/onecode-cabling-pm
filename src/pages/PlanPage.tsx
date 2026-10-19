@@ -1,18 +1,22 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Grid3x3, Search } from 'lucide-react'
+import { Grid3x3, Plus, Search } from 'lucide-react'
 import type { ScopeItem, TaskView } from '@shared/types'
 import { localToday } from '@/lib/api'
+import { useAuth } from '@/lib/auth'
 import { useFetch, useLocalState, useMediaQuery } from '@/lib/hooks'
 import { cls, floorLabel, fmtDate, fmtNum, fmtPct } from '@/lib/format'
 import { Button, ErrorBanner, Input, Loading, Meter, PageHeader, Segmented, Select, Table, TaskStatusBadge, td, th } from '@/components/ui'
 import Gantt from '@/components/Gantt'
 import TaskDetail from '@/components/TaskDetail'
+import AddTaskModal from '@/components/AddTaskModal'
 
 type View = 'gantt' | 'list'
 type StatusFilter = 'all' | 'not_started' | 'in_progress' | 'attention' | 'done'
 
 export default function PlanPage() {
+  const { isAdmin } = useAuth()
+  const [adding, setAdding] = useState(false)
   const tasks = useFetch<TaskView[]>('/api/tasks')
   const items = useFetch<ScopeItem[]>('/api/scope-items')
   const [view, setView] = useLocalState<View>('plan.view', 'gantt')
@@ -61,6 +65,11 @@ export default function PlanPage() {
         description={root ? `Baseline ${fmtDate(root.plannedStart)} – ${fmtDate(root.plannedFinish)} · ${fmtPct(root.percent)} complete, ${fmtPct(root.plannedPercent)} planned` : undefined}
         actions={
           <>
+            {isAdmin && (
+              <Button variant="primary" onClick={() => setAdding(true)}>
+                <Plus className="h-4 w-4" /> Add task
+              </Button>
+            )}
             <Link to="/plan/quantities">
               <Button>
                 <Grid3x3 className="h-4 w-4" /> Quantities
@@ -151,6 +160,16 @@ export default function PlanPage() {
       )}
 
       <TaskDetail taskId={selected} scopeItems={items.data ?? []} onClose={() => setSelected(null)} onChanged={() => void tasks.reload()} />
+      {adding && (
+        <AddTaskModal
+          onClose={() => setAdding(false)}
+          onSaved={async (t) => {
+            setAdding(false)
+            await tasks.reload()
+            setSelected(t.id)
+          }}
+        />
+      )}
     </div>
   )
 }

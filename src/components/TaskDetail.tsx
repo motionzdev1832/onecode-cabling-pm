@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ClipboardList } from 'lucide-react'
+import { ClipboardList, Plus, Trash2 } from 'lucide-react'
 import type { DailyLog, ScopeItem, TaskView } from '@shared/types'
 import { api, errorMessage } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { useFetch } from '@/lib/hooks'
 import { cls, floorLabel, fmtDate, fmtNum, fmtPct } from '@/lib/format'
-import { Button, ErrorBanner, Field, Input, Loading, Meter, Modal, Select, TaskStatusBadge, Textarea } from './ui'
+import { Button, ConfirmDialog, ErrorBanner, Field, Input, Loading, Meter, Modal, Select, TaskStatusBadge, Textarea } from './ui'
+import AddTaskModal from './AddTaskModal'
 
 interface Props {
   taskId: number | null
@@ -36,11 +37,32 @@ export default function TaskDetail({ taskId, scopeItems, onClose, onChanged }: P
   const [targets, setTargets] = useState<Record<number, string>>({})
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  const [addingSub, setAddingSub] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   useEffect(() => {
     setEditing(false)
     setErr(null)
+    setAddingSub(false)
+    setConfirmDelete(false)
   }, [taskId])
+
+  const remove = async () => {
+    if (!task) return
+    setSaving(true)
+    setErr(null)
+    try {
+      await api.del(`/api/tasks/${task.id}`)
+      setConfirmDelete(false)
+      onChanged()
+      onClose()
+    } catch (e) {
+      setConfirmDelete(false)
+      setErr(errorMessage(e))
+    } finally {
+      setSaving(false)
+    }
+  }
 
   useEffect(() => {
     if (!data) return
@@ -129,6 +151,16 @@ export default function TaskDetail({ taskId, scopeItems, onClose, onChanged }: P
             </>
           ) : (
             <>
+              {task.parentId !== null && !task.hasChildren && (
+                <Button variant="danger" onClick={() => setConfirmDelete(true)} loading={saving}>
+                  <Trash2 className="h-4 w-4" /> Delete
+                </Button>
+              )}
+              {task.status === 'not_started' || task.hasChildren ? (
+                <Button onClick={() => setAddingSub(true)}>
+                  <Plus className="h-4 w-4" /> Add sub-task
+                </Button>
+              ) : null}
               {!task.hasChildren && task.status !== 'done' && (
                 <Button onClick={markDone} loading={saving}>
                   Mark complete
@@ -265,6 +297,25 @@ export default function TaskDetail({ taskId, scopeItems, onClose, onChanged }: P
             </div>
           )}
 
+          {addingSub && (
+            <AddTaskModal
+              parentId={task.id}
+              onClose={() => setAddingSub(false)}
+              onSaved={async () => {
+                setAddingSub(false)
+                await reload()
+                onChanged()
+              }}
+            />
+          )}
+          <ConfirmDialog
+            open={confirmDelete}
+            onClose={() => setConfirmDelete(false)}
+            onConfirm={remove}
+            loading={saving}
+            title="Delete task"
+            message={`Delete "${task.name}" from the plan? Its quantity targets are removed too. Tasks with daily log entries cannot be deleted.`}
+          />
           {data && data.logs.length > 0 && (
             <div>
               <h3 className="mb-2 text-sm font-semibold text-ink">Progress log</h3>
