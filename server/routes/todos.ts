@@ -5,7 +5,7 @@ import { desc, eq } from 'drizzle-orm'
 import type { AppEnv } from '../env'
 import { todos } from '../db/schema'
 import { requireAdmin } from '../auth'
-import { idParam, logActivity, nowIso, parseBody } from '../util'
+import { describeChanges, idParam, logActivity, nowIso, parseBody } from '../util'
 import { isoDate } from './project'
 
 const r = new Hono<AppEnv>()
@@ -43,7 +43,7 @@ r.put('/:id', requireAdmin, async (c) => {
   let completedAt = existing.completedAt
   if (body.status && body.status !== existing.status) completedAt = body.status === 'done' ? ts : null
   const row = await c.var.db.update(todos).set({ ...body, updatedAt: ts, completedAt }).where(eq(todos.id, id)).returning().get()
-  await logActivity(c, 'update', 'todo', id, `Updated to-do "${row!.title}"${body.status ? ` → ${body.status}` : ''}`)
+  await logActivity(c, 'update', 'todo', id, `Updated to-do "${existing.title}": ${describeChanges(existing, body) || 'no changes'}`)
   return c.json(row)
 })
 

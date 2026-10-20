@@ -3,7 +3,7 @@ import { HTTPException } from 'hono/http-exception'
 import type { AppEnv } from './env'
 import { getDb } from './db'
 import { requireAuth, sessionMiddleware } from './auth'
-import { recentActivity } from './util'
+import { activityFacets, queryActivity } from './util'
 import authRoutes from './routes/auth'
 import projectRoutes from './routes/project'
 import scopeRoutes from './routes/scope'
@@ -40,9 +40,20 @@ protectedApi.route('/users', userRoutes)
 protectedApi.route('/dashboard', dashboardRoutes)
 protectedApi.route('/report', reportRoutes)
 protectedApi.get('/activity', async (c) => {
-  const limit = Math.min(200, Math.max(1, Number(c.req.query('limit')) || 50))
-  return c.json(await recentActivity(c.var.db, limit))
+  const q = c.req.query()
+  return c.json(
+    await queryActivity(c.var.db, {
+      user: q.user || undefined,
+      entity: q.entity || undefined,
+      action: q.action || undefined,
+      q: q.q || undefined,
+      from: q.from || undefined,
+      to: q.to || undefined,
+      limit: Number(q.limit) || 200,
+    }),
+  )
 })
+protectedApi.get('/activity/facets', async (c) => c.json(await activityFacets(c.var.db)))
 app.route('/', protectedApi)
 
 app.notFound((c) => c.json({ error: 'Not found' }, 404))

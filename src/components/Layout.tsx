@@ -20,7 +20,7 @@ const NAV: NavItem[] = [
   { to: '/issues', label: 'Issues', icon: CircleAlert },
   { to: '/materials', label: 'Materials', icon: Package },
   { to: '/report', label: 'Weekly report', icon: FileText },
-  { to: '/activity', label: 'Activity', icon: Activity },
+  { to: '/activity', label: 'Audit log', icon: Activity },
   { to: '/users', label: 'Users', icon: Users, adminOnly: true },
   { to: '/settings', label: 'Settings', icon: Settings },
 ]

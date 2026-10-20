@@ -3,9 +3,9 @@ import { HTTPException } from 'hono/http-exception'
 import { z } from 'zod'
 import { count, eq } from 'drizzle-orm'
 import type { AppEnv } from '../env'
-import { users } from '../db/schema'
+import { activityLog, users } from '../db/schema'
 import { createSession, destroySession, hashPassword, publicUser, verifyPassword } from '../auth'
-import { logActivity, nowIso, parseBody } from '../util'
+import { clientIp, logActivity, nowIso, parseBody } from '../util'
 
 export const usernameSchema = z
   .string()
@@ -49,12 +49,26 @@ auth.post('/login', async (c) => {
   const body = await parseBody(c, z.object({ username: z.string().trim().min(1), password: z.string().min(1) }))
   const row = await c.var.db.select().from(users).where(eq(users.username, body.username.toLowerCase())).get()
   const ok = row ? await verifyPassword(body.password, row.salt, row.passwordHash) : false
-  if (!row || !ok) throw new HTTPException(401, { message: 'Incorrect username or password' })
+  if (!row || !ok) {
+    await c.var.db.insert(activityLog).values({
+      userId: row?.id ?? null,
+      userName: body.username.toLowerCase(),
+      action: 'login_failed',
+      entity: 'session',
+      entityId: null,
+      summary: `Failed sign-in attempt for "${body.username.toLowerCase()}" from ${clientIp(c)}`,
+      createdAt: nowIso(),
+    })
+    throw new HTTPException(401, { message: 'Incorrect username or password' })
+  }
   await createSession(c, c.var.db, row.id)
+  c.set('user', publicUser(row))
+  await logActivity(c, 'login', 'session', row.id, `Signed in from ${clientIp(c)}`)
   return c.json({ user: publicUser(row) })
 })
 
 auth.post('/logout', async (c) => {
+  if (c.var.user) await logActivity(c, 'logout', 'session', c.var.user.id, 'Signed out')
   await destroySession(c, c.var.db)
   return c.json({ ok: true })
 })
@@ -74,6 +88,7 @@ auth.post('/change-password', async (c) => {
   }
   const { hash, salt } = await hashPassword(body.newPassword)
   await c.var.db.update(users).set({ passwordHash: hash, salt }).where(eq(users.id, me.id))
+  await logActivity(c, 'password_change', 'user', me.id, 'Changed own password')
   return c.json({ ok: true })
 })
 

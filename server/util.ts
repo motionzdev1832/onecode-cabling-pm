@@ -1,6 +1,6 @@
 import type { Context } from 'hono'
 import { HTTPException } from 'hono/http-exception'
-import { desc, eq, inArray } from 'drizzle-orm'
+import { and, desc, eq, gte, inArray, like, lte } from 'drizzle-orm'
 import type { z } from 'zod'
 import type { AppEnv } from './env'
 import type { DB } from './db'
@@ -105,8 +105,59 @@ export async function rollupSummaryDates(db: DB): Promise<void> {
   }
 }
 
-export async function recentActivity(db: DB, limit = 30) {
-  return db.select().from(activityLog).orderBy(desc(activityLog.id)).limit(limit).all()
+export interface ActivityQuery {
+  user?: string
+  entity?: string
+  action?: string
+  q?: string
+  from?: string
+  to?: string
+  limit?: number
+}
+
+export async function queryActivity(db: DB, f: ActivityQuery) {
+  const conds = []
+  if (f.user) conds.push(eq(activityLog.userName, f.user))
+  if (f.entity) conds.push(eq(activityLog.entity, f.entity))
+  if (f.action) conds.push(eq(activityLog.action, f.action))
+  if (f.q) conds.push(like(activityLog.summary, `%${f.q.replace(/[%_]/g, '')}%`))
+  if (isValidIsoDate(f.from)) conds.push(gte(activityLog.createdAt, f.from))
+  if (isValidIsoDate(f.to)) conds.push(lte(activityLog.createdAt, f.to + 'T23:59:59.999Z'))
+  return db
+    .select()
+    .from(activityLog)
+    .where(conds.length ? and(...conds) : undefined)
+    .orderBy(desc(activityLog.id))
+    .limit(Math.min(1000, Math.max(1, f.limit ?? 200)))
+    .all()
+}
+
+export async function activityFacets(db: DB) {
+  const [users, entities, actions] = await Promise.all([
+    db.select({ v: activityLog.userName }).from(activityLog).groupBy(activityLog.userName).all(),
+    db.select({ v: activityLog.entity }).from(activityLog).groupBy(activityLog.entity).all(),
+    db.select({ v: activityLog.action }).from(activityLog).groupBy(activityLog.action).all(),
+  ])
+  const vals = (rows: { v: string | null }[]) => rows.map((r) => r.v).filter((v): v is string => !!v).sort()
+  return { users: vals(users), entities: vals(entities), actions: vals(actions) }
+}
+
+/** "field: old → new; …" for the keys present in `after` that differ from `before`. */
+export function describeChanges(before: Record<string, unknown>, after: Record<string, unknown>): string {
+  const fmt = (v: unknown) => (v === null || v === undefined || v === '' ? '—' : typeof v === 'string' ? (v.length > 40 ? v.slice(0, 37) + '…' : v) : typeof v === 'object' ? JSON.stringify(v) : String(v))
+  const parts: string[] = []
+  for (const k of Object.keys(after)) {
+    if (!(k in before)) continue
+    const a = before[k]
+    const b = after[k]
+    if (JSON.stringify(a ?? null) === JSON.stringify(b ?? null)) continue
+    parts.push(`${k}: ${fmt(a)} → ${fmt(b)}`)
+  }
+  return parts.join('; ')
+}
+
+export function clientIp(c: Context<AppEnv>): string {
+  return c.req.header('cf-connecting-ip') ?? c.req.header('x-forwarded-for') ?? 'unknown IP'
 }
 
 export async function logsWithItems(db: DB, logRows: (typeof dailyLogs.$inferSelect)[]) {

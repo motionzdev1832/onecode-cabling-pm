@@ -5,7 +5,7 @@ import { desc, eq } from 'drizzle-orm'
 import type { AppEnv } from '../env'
 import { issues } from '../db/schema'
 import { requireAdmin } from '../auth'
-import { idParam, logActivity, nowIso, parseBody, todayFrom } from '../util'
+import { describeChanges, idParam, logActivity, nowIso, parseBody, todayFrom } from '../util'
 import { isoDate } from './project'
 
 const r = new Hono<AppEnv>()
@@ -50,7 +50,7 @@ r.put('/:id', requireAdmin, async (c) => {
   if (closing && !body.resolvedDate && !existing.resolvedDate) patch.resolvedDate = todayFrom(c)
   if (body.status && ['open', 'in_progress'].includes(body.status) && body.resolvedDate === undefined) patch.resolvedDate = null
   const row = await c.var.db.update(issues).set(patch).where(eq(issues.id, id)).returning().get()
-  await logActivity(c, 'update', 'issue', id, `Updated issue "${row!.title}"${body.status ? ` → ${body.status}` : ''}`)
+  await logActivity(c, 'update', 'issue', id, `Updated issue #${id} "${existing.title}": ${describeChanges(existing, body) || 'no changes'}`)
   return c.json(row)
 })
 

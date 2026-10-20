@@ -6,7 +6,7 @@ import type { AppEnv } from '../env'
 import type { DB } from '../db'
 import { dailyLogItems, deliveries, scopeItems, taskTargets } from '../db/schema'
 import { requireAdmin } from '../auth'
-import { logActivity, parseBody, idParam } from '../util'
+import { describeChanges, logActivity, parseBody, idParam } from '../util'
 import type { ScopeItemProgress } from '../../shared/types'
 
 const r = new Hono<AppEnv>()
@@ -68,9 +68,10 @@ r.put('/:id', requireAdmin, async (c) => {
   const id = idParam(c)
   const body = await parseBody(c, itemSchema.partial())
   if (body.code) body.code = body.code.toUpperCase()
+  const existing = await c.var.db.select().from(scopeItems).where(eq(scopeItems.id, id)).get()
+  if (!existing) throw new HTTPException(404, { message: 'Scope item not found' })
   const row = await c.var.db.update(scopeItems).set(body).where(eq(scopeItems.id, id)).returning().get()
-  if (!row) throw new HTTPException(404, { message: 'Scope item not found' })
-  await logActivity(c, 'update', 'scope_item', id, `Updated scope item "${row.name}"`)
+  await logActivity(c, 'update', 'scope_item', id, `Updated scope item "${existing.name}": ${describeChanges(existing, body) || 'no changes'}`)
   return c.json(row)
 })
 

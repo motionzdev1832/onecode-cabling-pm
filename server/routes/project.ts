@@ -5,7 +5,7 @@ import { eq } from 'drizzle-orm'
 import type { AppEnv } from '../env'
 import { project } from '../db/schema'
 import { requireAdmin } from '../auth'
-import { logActivity, parseBody } from '../util'
+import { describeChanges, logActivity, parseBody } from '../util'
 import { isValidIsoDate } from '../../shared/dates'
 
 export const isoDate = z.string().refine(isValidIsoDate, 'must be YYYY-MM-DD')
@@ -35,8 +35,9 @@ r.put('/', requireAdmin, async (c) => {
   if (body.plannedStart && body.plannedFinish && body.plannedFinish < body.plannedStart) {
     throw new HTTPException(400, { message: 'Planned finish must be after planned start' })
   }
+  const existing = await c.var.db.select().from(project).where(eq(project.id, 1)).get()
   const row = await c.var.db.update(project).set(body).where(eq(project.id, 1)).returning().get()
-  await logActivity(c, 'update', 'project', 1, 'Updated project settings')
+  await logActivity(c, 'update', 'project', 1, `Updated project settings: ${existing ? describeChanges(existing, body) || 'no changes' : ''}`)
   return c.json(row)
 })
 

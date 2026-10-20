@@ -5,7 +5,7 @@ import { and, desc, eq, gt, inArray, sql } from 'drizzle-orm'
 import type { AppEnv } from '../env'
 import { dailyLogs, scopeItems, tasks, taskTargets } from '../db/schema'
 import { requireAdmin } from '../auth'
-import { idParam, loadProgressInputs, logActivity, logsWithItems, parseBody, rollupSummaryDates, todayFrom } from '../util'
+import { describeChanges, idParam, loadProgressInputs, logActivity, logsWithItems, parseBody, rollupSummaryDates, todayFrom } from '../util'
 import { buildTaskViews } from '../../shared/progress'
 import { isoDate } from './project'
 
@@ -87,7 +87,8 @@ r.put('/:id', requireAdmin, async (c) => {
     if (ids.size) await c.var.db.update(tasks).set({ pic: body.pic }).where(inArray(tasks.id, [...ids]))
   }
   if (body.plannedStart || body.plannedFinish) await rollupSummaryDates(c.var.db)
-  await logActivity(c, 'update', 'task', id, `Updated task "${existing.name}" (${Object.keys(body).join(', ')})`)
+  const changes = describeChanges(existing, body)
+  await logActivity(c, 'update', 'task', id, `Updated task "${existing.name}": ${changes || 'no changes'}${picCascade && body.pic !== undefined ? ' (PIC applied to all sub-tasks)' : ''}`)
   const inputs = await loadProgressInputs(c.var.db)
   return c.json(buildTaskViews({ ...inputs, today: todayFrom(c) }).find((t) => t.id === id))
 })

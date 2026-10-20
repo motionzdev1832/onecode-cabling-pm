@@ -43,6 +43,15 @@ r.get('/', async (c) => {
   return c.json(withItems.map((l) => ({ ...l, createdByName: meta.get(l.id)?.createdByName ?? null, taskName: meta.get(l.id)?.taskName ?? '' })))
 })
 
+/** "150 Ea MPO Patch Cord, 10 Ea MPO Y Cable; 6 workers" for the audit trail. */
+async function describeLog(c: Context<AppEnv>, body: z.infer<typeof logSchema>): Promise<string> {
+  const items = await c.var.db.select({ id: scopeItems.id, name: scopeItems.name, unit: scopeItems.unit }).from(scopeItems).all()
+  const byId = new Map(items.map((i) => [i.id, i]))
+  const parts = body.items.filter((i) => i.qty > 0).map((i) => `${i.qty} ${byId.get(i.scopeItemId)?.unit ?? ''} ${byId.get(i.scopeItemId)?.name ?? i.scopeItemId}`)
+  const s = parts.length ? parts.join(', ') : 'no quantities'
+  return body.manpower ? `${s}; ${body.manpower} workers` : s
+}
+
 async function validateLog(c: Context<AppEnv>, body: z.infer<typeof logSchema>) {
   const db = c.var.db
   if (body.logDate > addDays(todayFrom(c), 1)) throw new HTTPException(400, { message: 'Log date cannot be in the future' })
@@ -74,7 +83,7 @@ r.post('/', requireAdmin, async (c) => {
   if (items.length) await db.insert(dailyLogItems).values(items)
   // First log against a task sets its actual start if not set.
   if (!task.actualStart || body.logDate < task.actualStart) await db.update(tasks).set({ actualStart: body.logDate }).where(eq(tasks.id, task.id))
-  await logActivity(c, 'create', 'daily_log', row.id, `Logged progress on "${task.name}" for ${body.logDate}`)
+  await logActivity(c, 'create', 'daily_log', row.id, `Logged progress on "${task.name}" for ${body.logDate}: ${await describeLog(c, body)}`)
   const [full] = await logsWithItems(db, [row])
   return c.json(full, 201)
 })
@@ -94,7 +103,7 @@ r.put('/:id', requireAdmin, async (c) => {
   const items = body.items.filter((i) => i.qty > 0).map((i) => ({ logId: id, scopeItemId: i.scopeItemId, qty: i.qty }))
   if (items.length) await db.insert(dailyLogItems).values(items)
   if (!task.actualStart || body.logDate < task.actualStart) await db.update(tasks).set({ actualStart: body.logDate }).where(eq(tasks.id, task.id))
-  await logActivity(c, 'update', 'daily_log', id, `Edited progress log on "${task.name}" for ${body.logDate}`)
+  await logActivity(c, 'update', 'daily_log', id, `Edited progress log on "${task.name}" for ${body.logDate}: now ${await describeLog(c, body)}`)
   const row = await db.select().from(dailyLogs).where(eq(dailyLogs.id, id)).get()
   const [full] = await logsWithItems(db, [row!])
   return c.json(full)

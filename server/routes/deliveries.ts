@@ -5,7 +5,7 @@ import { desc, eq } from 'drizzle-orm'
 import type { AppEnv } from '../env'
 import { deliveries, scopeItems } from '../db/schema'
 import { requireAdmin } from '../auth'
-import { idParam, logActivity, nowIso, parseBody } from '../util'
+import { describeChanges, idParam, logActivity, nowIso, parseBody } from '../util'
 import { isoDate } from './project'
 
 const r = new Hono<AppEnv>()
@@ -37,9 +37,10 @@ r.post('/', requireAdmin, async (c) => {
 r.put('/:id', requireAdmin, async (c) => {
   const id = idParam(c)
   const body = await parseBody(c, schema.partial())
+  const existing = await c.var.db.select().from(deliveries).where(eq(deliveries.id, id)).get()
+  if (!existing) throw new HTTPException(404, { message: 'Delivery not found' })
   const row = await c.var.db.update(deliveries).set(body).where(eq(deliveries.id, id)).returning().get()
-  if (!row) throw new HTTPException(404, { message: 'Delivery not found' })
-  await logActivity(c, 'update', 'delivery', id, `Edited delivery #${id}`)
+  await logActivity(c, 'update', 'delivery', id, `Edited delivery #${id}: ${describeChanges(existing, body) || 'no changes'}`)
   return c.json(row)
 })
 
