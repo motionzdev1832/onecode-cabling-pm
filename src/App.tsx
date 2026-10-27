@@ -6,6 +6,7 @@ import Layout from '@/components/Layout'
 import { LoginPage, SetupPage } from '@/pages/AuthPages'
 import DashboardPage from '@/pages/DashboardPage'
 import PlanPage from '@/pages/PlanPage'
+import PlanPrintPage from '@/pages/PlanPrintPage'
 import AllocationPage from '@/pages/AllocationPage'
 import DailyLogPage from '@/pages/DailyLogPage'
 import TodosPage from '@/pages/TodosPage'
@@ -36,6 +37,14 @@ export default function App() {
     <Routes>
       <Route path="/setup" element={<SetupPage />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route
+        path="/plan/print"
+        element={
+          <RequireAuth>
+            <PlanPrintPage />
+          </RequireAuth>
+        }
+      />
       <Route
         element={
           <RequireAuth>

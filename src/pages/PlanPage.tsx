@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Grid3x3, Plus, Search } from 'lucide-react'
+import { FileDown, Grid3x3, Plus, Search } from 'lucide-react'
 import type { ScopeItem, TaskView } from '@shared/types'
 import { localToday } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { useFetch, useLocalState, useMediaQuery } from '@/lib/hooks'
+import { filterPlanTasks } from '@/lib/planFilter'
 import { cls, floorLabel, fmtDate, fmtNum, fmtPct } from '@/lib/format'
 import { Button, ErrorBanner, Input, Loading, Meter, PageHeader, Segmented, Select, Table, TaskStatusBadge, td, th } from '@/components/ui'
 import Gantt from '@/components/Gantt'
@@ -31,30 +32,11 @@ export default function PlanPage() {
   const compact = useMediaQuery('(max-width: 639px)')
   const collapsed = useMemo(() => new Set(collapsedArr), [collapsedArr])
 
-  const filtered = useMemo(() => {
-    const all = tasks.data ?? []
-    const hasFilter = floor !== 'all' || status !== 'all' || q.trim() !== '' || pic !== 'all'
-    if (!hasFilter) return all
-    const ql = q.trim().toLowerCase()
-    const matches = (t: TaskView) => {
-      if (floor !== 'all' && t.floor !== floor) return false
-      if (pic !== 'all' && (pic === '' ? !!t.pic : t.pic !== pic)) return false
-      if (status === 'attention' ? !(t.late || t.behind) : status !== 'all' && t.status !== status) return false
-      if (ql && !t.name.toLowerCase().includes(ql) && !t.path.toLowerCase().includes(ql)) return false
-      return true
-    }
-    const keep = new Set<number>()
-    const byId = new Map(all.map((t) => [t.id, t]))
-    for (const t of all) {
-      if (t.hasChildren || !matches(t)) continue
-      let cur: TaskView | undefined = t
-      while (cur) {
-        keep.add(cur.id)
-        cur = cur.parentId !== null ? byId.get(cur.parentId) : undefined
-      }
-    }
-    return all.filter((t) => keep.has(t.id))
-  }, [tasks.data, floor, status, q, pic])
+  const filtered = useMemo(() => filterPlanTasks(tasks.data ?? [], { floor, status, q, pic }), [tasks.data, floor, status, q, pic])
+  const exportPdf = () => {
+    const p = new URLSearchParams({ floor, status, pic, q, auto: '1' })
+    window.open(`/plan/print?${p.toString()}`, '_blank', 'noopener')
+  }
   const pics = useMemo(() => [...new Set((tasks.data ?? []).map((t) => t.pic).filter((p): p is string => !!p))].sort(), [tasks.data])
 
   const toggle = (id: number) => setCollapsedArr((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
@@ -73,6 +55,9 @@ export default function PlanPage() {
                 <Plus className="h-4 w-4" /> Add task
               </Button>
             )}
+            <Button onClick={exportPdf} title="Opens a print view; choose Save as PDF">
+              <FileDown className="h-4 w-4" /> Export PDF
+            </Button>
             <Link to="/plan/quantities">
               <Button>
                 <Grid3x3 className="h-4 w-4" /> Quantities
