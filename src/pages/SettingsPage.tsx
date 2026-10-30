@@ -3,6 +3,7 @@ import type { Project } from '@shared/types'
 import { api, errorMessage } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { useFetch } from '@/lib/hooks'
+import { fmtDateTime } from '@/lib/format'
 import { Badge, Button, Card, ErrorBanner, Field, Input, Loading, PageHeader, Textarea } from '@/components/ui'
 
 export default function SettingsPage() {
@@ -108,6 +109,7 @@ export default function SettingsPage() {
 
         <div className="space-y-4">
           <AccountCard username={user?.username ?? ''} role={user?.role ?? 'viewer'} />
+          <BuildInfo />
         </div>
       </div>
     </div>
@@ -159,5 +161,29 @@ function AccountCard({ username, role }: { username: string; role: string }) {
         </Button>
       </div>
     </Card>
+  )
+}
+
+interface BuildStamp {
+  sha: string
+  branch: string | null
+  builtAt: string
+  source: 'workers-builds' | 'local'
+}
+
+/** Which build is live (from dist/version.json, written by scripts/stamp.mjs at build time). */
+function BuildInfo() {
+  const [info, setInfo] = useState<BuildStamp | null | undefined>(undefined)
+  useEffect(() => {
+    fetch('/version.json?t=' + Date.now(), { cache: 'no-store' })
+      .then((r) => (r.ok ? (r.json() as Promise<BuildStamp>) : null))
+      .then(setInfo)
+      .catch(() => setInfo(null))
+  }, [])
+  if (info === undefined) return null
+  return (
+    <p className="px-1 text-xs text-ink-3">
+      {info ? `Build ${info.sha}${info.branch ? ' (' + info.branch + ')' : ''} · ${fmtDateTime(info.builtAt)} · ${info.source === 'workers-builds' ? 'deployed by Cloudflare Workers Builds' : 'deployed from a local machine'}` : 'Build info unavailable'}
+    </p>
   )
 }
