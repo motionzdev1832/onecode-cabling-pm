@@ -9,7 +9,7 @@ Progress-control web app for the AI Farm cabling and equipment installation proj
 | Page | Purpose |
 |---|---|
 | Dashboard | Overall / per-floor progress vs plan, S-curve, late or behind tasks, scope quantities, manpower |
-| Plan | Gantt and list of the 70-task baseline (from the MS Project plan); task details, actual dates, targets |
+| Plan | Gantt and list of the 70-task baseline (from the MS Project plan); task details, actual dates, targets; add, reorder and move tasks (admin) |
 | Plan › Quantities | Matrix to split each scope quantity (e.g. 5,172 MPO patch cords) across the leaf tasks that install it |
 | Daily log | Installed quantities + workers on site, per task per day. This drives all progress figures |
 | To-do | Action list with owner, due date, priority |

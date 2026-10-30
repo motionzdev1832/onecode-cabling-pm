@@ -2,12 +2,14 @@ import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { z } from 'zod'
 import { and, desc, eq, gt, inArray, sql } from 'drizzle-orm'
+import type { BatchItem } from 'drizzle-orm/batch'
 import type { AppEnv } from '../env'
 import { dailyLogs, scopeItems, tasks, taskTargets } from '../db/schema'
 import { requireAdmin } from '../auth'
 import { describeChanges, idParam, loadProgressInputs, logActivity, logsWithItems, parseBody, rollupSummaryDates, todayFrom } from '../util'
 import { buildTaskViews } from '../../shared/progress'
 import { isoDate } from './project'
+import { outlineAfterMove, subtreeIds, type MoveTarget } from '../taskOrder'
 
 const r = new Hono<AppEnv>()
 
@@ -160,6 +162,86 @@ r.delete('/:id', requireAdmin, async (c) => {
   await rollupSummaryDates(c.var.db)
   await logActivity(c, 'delete', 'task', id, `Deleted task "${row.name}"`)
   return c.json({ ok: true })
+})
+
+const moveBody = z.union([
+  z.object({ direction: z.enum(['up', 'down']) }),
+  z.object({ parentId: z.number().int().positive(), afterId: z.number().int().positive().nullable() }),
+])
+
+/**
+ * Reorder a task: one step up/down among its siblings, or under a chosen parent after a chosen
+ * sibling (afterId null = first). Sub-tasks move with it. Returns the full refreshed task list.
+ */
+r.put('/:id/move', requireAdmin, async (c) => {
+  const id = idParam(c)
+  const body = await parseBody(c, moveBody)
+  const db = c.var.db
+  const all = await db.select().from(tasks).orderBy(tasks.sortOrder).all()
+  const task = all.find((t) => t.id === id)
+  if (!task) throw new HTTPException(404, { message: 'Task not found' })
+  const oldParentId = task.parentId
+  if (oldParentId === null) throw new HTTPException(400, { message: 'The project root cannot be moved' })
+  const sub = subtreeIds(all, id)
+  let target: MoveTarget
+  let how: string
+  if ('direction' in body) {
+    const sibs = all.filter((t) => t.parentId === oldParentId)
+    const i = sibs.findIndex((t) => t.id === id)
+    if (body.direction === 'up') {
+      if (i === 0) throw new HTTPException(400, { message: 'Already first among its siblings' })
+      target = { parentId: oldParentId, afterId: i >= 2 ? sibs[i - 2].id : null }
+    } else {
+      if (i === sibs.length - 1) throw new HTTPException(400, { message: 'Already last among its siblings' })
+      target = { parentId: oldParentId, afterId: sibs[i + 1].id }
+    }
+    how = `Moved task "${task.name}" ${body.direction}`
+  } else {
+    if (sub.has(body.parentId)) throw new HTTPException(400, { message: 'A task cannot be moved under itself or one of its sub-tasks' })
+    const parent = all.find((t) => t.id === body.parentId)
+    if (!parent) throw new HTTPException(404, { message: 'Parent task not found' })
+    const after = body.afterId === null ? null : all.find((t) => t.id === body.afterId)
+    if (body.afterId !== null && (!after || after.parentId !== parent.id || after.id === id)) {
+      throw new HTTPException(400, { message: 'The position must be another task under the chosen parent' })
+    }
+    target = { parentId: parent.id, afterId: body.afterId }
+    how = `Moved task "${task.name}" under "${parent.name}"${after ? ` after "${after.name}"` : ' as first'}`
+  }
+  const newParent = all.find((t) => t.id === target.parentId)
+  if (!newParent) throw new HTTPException(404, { message: 'Parent task not found' })
+  const parentChanged = newParent.id !== oldParentId
+  const newParentHasKids = all.some((t) => t.parentId === newParent.id)
+  if (parentChanged && !newParentHasKids) {
+    const n = await db.select({ n: sql<number>`count(*)` }).from(dailyLogs).where(eq(dailyLogs.taskId, newParent.id)).get()
+    if ((n?.n ?? 0) > 0) throw new HTTPException(409, { message: 'That task already has daily log entries, so it cannot become a summary row' })
+  }
+  const ordered = outlineAfterMove(all, id, target)
+  const levelDelta = newParent.level + 1 - task.level
+  const floorTo = parentChanged && newParent.floor && newParent.floor !== task.floor ? newParent.floor : null
+  const updates: { id: number; set: Partial<typeof tasks.$inferInsert> }[] = []
+  ordered.forEach((t, i) => {
+    const set: Partial<typeof tasks.$inferInsert> = {}
+    if (t.sortOrder !== i + 1) set.sortOrder = i + 1
+    if (t.id === id && parentChanged) set.parentId = newParent.id
+    if (sub.has(t.id)) {
+      if (levelDelta !== 0) set.level = t.level + levelDelta
+      if (floorTo && t.floor !== floorTo) set.floor = floorTo
+    }
+    if (Object.keys(set).length) updates.push({ id: t.id, set })
+  })
+  if (parentChanged) {
+    if (!newParentHasKids) updates.push({ id: newParent.id, set: { isSummary: true } })
+    if (!all.some((t) => t.parentId === oldParentId && t.id !== id)) updates.push({ id: oldParentId, set: { isSummary: false } })
+  }
+  if (updates.length > 0) {
+    const stmts: BatchItem<'sqlite'>[] = updates.map((u) => db.update(tasks).set(u.set).where(eq(tasks.id, u.id)))
+    if (parentChanged && !newParentHasKids) stmts.push(db.delete(taskTargets).where(eq(taskTargets.taskId, newParent.id)))
+    for (let i = 0; i < stmts.length; i += 40) await db.batch(stmts.slice(i, i + 40) as [BatchItem<'sqlite'>, ...BatchItem<'sqlite'>[]])
+    await rollupSummaryDates(db)
+    await logActivity(c, 'move', 'task', id, how + (floorTo ? ` (floor set to ${floorTo})` : ''))
+  }
+  const inputs = await loadProgressInputs(db)
+  return c.json(buildTaskViews({ ...inputs, today: todayFrom(c) }))
 })
 
 // ---- Quantity targets (allocation of scope quantities to leaf tasks) ----

@@ -1,4 +1,4 @@
-import { useMemo, useState, type MouseEvent } from 'react'
+import { useMemo, useState, type MouseEvent, type ReactNode } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import type { TaskView } from '@shared/types'
 import { addDays, daysBetween, toUtcMs } from '@shared/dates'
@@ -20,6 +20,8 @@ interface Props {
   pxPerDay?: number
   /** Tighter indentation and label column for phones. */
   compact?: boolean
+  /** Replaces the percent figure at the end of the label cell (e.g. reorder controls). */
+  rowEnd?: (task: TaskView) => ReactNode
 }
 
 interface Tip {
@@ -28,7 +30,7 @@ interface Tip {
   task: TaskView
 }
 
-export default function Gantt({ tasks, today, collapsed, onToggle, onSelect, selectedId, pxPerDay = 14, compact = false }: Props) {
+export default function Gantt({ tasks, today, collapsed, onToggle, onSelect, selectedId, pxPerDay = 14, compact = false, rowEnd }: Props) {
   const indent = compact ? 8 : 14
   const [tip, setTip] = useState<Tip | null>(null)
 
@@ -145,7 +147,11 @@ export default function Gantt({ tasks, today, collapsed, onToggle, onSelect, sel
                     {shortName(t.name)}
                     {t.pic && <span className="ml-1.5 font-normal text-ink-3">· {t.pic}</span>}
                   </span>
-                  <span className={cls('tabular shrink-0 text-[11px]', t.status === 'done' ? 'text-good-text' : t.late ? 'text-critical-text' : t.behind ? 'text-serious-text' : 'text-ink-3')}>{Math.round(t.percent)}%</span>
+                  {rowEnd ? (
+                    rowEnd(t)
+                  ) : (
+                    <span className={cls('tabular shrink-0 text-[11px]', t.status === 'done' ? 'text-good-text' : t.late ? 'text-critical-text' : t.behind ? 'text-serious-text' : 'text-ink-3')}>{Math.round(t.percent)}%</span>
+                  )}
                 </div>
                 <div className="relative shrink-0" style={{ width }}>
                   <div

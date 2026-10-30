@@ -42,6 +42,21 @@ export function Spinner({ className }: { className?: string }) {
   )
 }
 
+/** Square icon-only button (28px); `label` doubles as the tooltip and accessible name. */
+export function IconButton({ label, className, children, ...rest }: ButtonHTMLAttributes<HTMLButtonElement> & { label: string }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      className={cls('inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-ink-2 transition-colors hover:bg-line-2 hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent', className)}
+      {...rest}
+    >
+      {children}
+    </button>
+  )
+}
+
 // ---------- Form controls ----------
 
 const hasWidth = (c?: string) => !!c && /(^|\s)w-/.test(c)
@@ -281,7 +296,7 @@ export function Modal({ open, onClose, title, children, footer, wide = false }: 
           </button>
         </header>
         <div className="overflow-y-auto px-5 py-4">{children}</div>
-        {footer && <footer className="flex items-center justify-end gap-2 border-t border-line-2 px-5 py-3">{footer}</footer>}
+        {footer && <footer className="flex flex-wrap items-center justify-end gap-2 border-t border-line-2 px-5 py-3">{footer}</footer>}
       </div>
     </div>
   )

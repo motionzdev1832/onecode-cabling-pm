@@ -1,16 +1,18 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { FileDown, Grid3x3, Plus, Search } from 'lucide-react'
+import { ArrowDown, ArrowUp, ArrowUpDown, Check, FileDown, FolderInput, Grid3x3, Plus, Search } from 'lucide-react'
 import type { ScopeItem, TaskView } from '@shared/types'
-import { localToday } from '@/lib/api'
+import { api, errorMessage, localToday } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { useFetch, useLocalState, useMediaQuery } from '@/lib/hooks'
 import { filterPlanTasks } from '@/lib/planFilter'
+import { stepTarget } from '@/lib/planOrder'
 import { cls, floorLabel, fmtDate, fmtNum, fmtPct } from '@/lib/format'
-import { Button, ErrorBanner, Input, Loading, Meter, PageHeader, Segmented, Select, Table, TaskStatusBadge, td, th } from '@/components/ui'
+import { Button, ErrorBanner, IconButton, Input, Loading, Meter, PageHeader, Segmented, Select, Table, TaskStatusBadge, td, th } from '@/components/ui'
 import Gantt from '@/components/Gantt'
 import TaskDetail from '@/components/TaskDetail'
 import AddTaskModal from '@/components/AddTaskModal'
+import MoveTaskModal from '@/components/MoveTaskModal'
 
 type View = 'gantt' | 'list'
 type StatusFilter = 'all' | 'not_started' | 'in_progress' | 'attention' | 'done'
@@ -18,6 +20,10 @@ type StatusFilter = 'all' | 'not_started' | 'in_progress' | 'attention' | 'done'
 export default function PlanPage() {
   const { isAdmin } = useAuth()
   const [adding, setAdding] = useState(false)
+  const [reorder, setReorder] = useState(false)
+  const [movingId, setMovingId] = useState<number | null>(null)
+  const [busyId, setBusyId] = useState<number | null>(null)
+  const [moveErr, setMoveErr] = useState<string | null>(null)
   const tasks = useFetch<TaskView[]>('/api/tasks')
   const items = useFetch<ScopeItem[]>('/api/scope-items')
   const [view, setView] = useLocalState<View>('plan.view', 'gantt')
@@ -32,16 +38,49 @@ export default function PlanPage() {
   const compact = useMediaQuery('(max-width: 639px)')
   const collapsed = useMemo(() => new Set(collapsedArr), [collapsedArr])
 
-  const filtered = useMemo(() => filterPlanTasks(tasks.data ?? [], { floor, status, q, pic }), [tasks.data, floor, status, q, pic])
+  const all = useMemo(() => tasks.data ?? [], [tasks.data])
+  const filtered = useMemo(() => filterPlanTasks(all, { floor, status, q, pic }), [all, floor, status, q, pic])
   const exportPdf = () => {
     const p = new URLSearchParams({ floor, status, pic, q, auto: '1' })
     window.open(`/plan/print?${p.toString()}`, '_blank', 'noopener')
   }
-  const pics = useMemo(() => [...new Set((tasks.data ?? []).map((t) => t.pic).filter((p): p is string => !!p))].sort(), [tasks.data])
+  const pics = useMemo(() => [...new Set(all.map((t) => t.pic).filter((p): p is string => !!p))].sort(), [all])
 
   const toggle = (id: number) => setCollapsedArr((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
-  const summaries = (tasks.data ?? []).filter((t) => t.hasChildren && t.parentId !== null).map((t) => t.id)
-  const root = tasks.data?.find((t) => t.parentId === null)
+  const summaries = all.filter((t) => t.hasChildren && t.parentId !== null).map((t) => t.id)
+  const root = all.find((t) => t.parentId === null)
+
+  // Reorder mode (admin): nudge a task past its nearest visible sibling; the server returns the refreshed list.
+  const step = async (t: TaskView, dir: 'up' | 'down') => {
+    const target = stepTarget(all, filtered, t, dir)
+    if (!target) return
+    setBusyId(t.id)
+    setMoveErr(null)
+    try {
+      tasks.setData(await api.put<TaskView[]>(`/api/tasks/${t.id}/move`, target))
+    } catch (e) {
+      setMoveErr(errorMessage(e))
+    } finally {
+      setBusyId(null)
+    }
+  }
+  const reordering = isAdmin && reorder
+  const controls = reordering
+    ? (t: TaskView) =>
+        t.parentId === null ? null : (
+          <span className="flex shrink-0 items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
+            <IconButton label="Move up" disabled={busyId !== null || !stepTarget(all, filtered, t, 'up')} onClick={() => void step(t, 'up')}>
+              <ArrowUp className="h-3.5 w-3.5" />
+            </IconButton>
+            <IconButton label="Move down" disabled={busyId !== null || !stepTarget(all, filtered, t, 'down')} onClick={() => void step(t, 'down')}>
+              <ArrowDown className="h-3.5 w-3.5" />
+            </IconButton>
+            <IconButton label="Move to…" disabled={busyId !== null} onClick={() => setMovingId(t.id)}>
+              <FolderInput className="h-3.5 w-3.5" />
+            </IconButton>
+          </span>
+        )
+    : undefined
 
   return (
     <div>
@@ -53,6 +92,11 @@ export default function PlanPage() {
             {isAdmin && (
               <Button variant="primary" onClick={() => setAdding(true)}>
                 <Plus className="h-4 w-4" /> Add task
+              </Button>
+            )}
+            {isAdmin && (
+              <Button variant={reorder ? 'primary' : 'secondary'} aria-pressed={reorder} onClick={() => setReorder((v) => !v)} title="Move tasks up or down, or under another task">
+                {reorder ? <Check className="h-4 w-4" /> : <ArrowUpDown className="h-4 w-4" />} {reorder ? 'Done' : 'Reorder'}
               </Button>
             )}
             <Button onClick={exportPdf} title="Opens a print view; choose Save as PDF">
@@ -104,12 +148,23 @@ export default function PlanPage() {
         )}
       </div>
 
+      {reordering && (
+        <div className="no-print mb-3 rounded-lg border border-accent-soft bg-accent-wash px-3 py-2 text-[13px] text-accent-2">
+          Reorder mode: the arrows move a task up or down among its siblings (sub-tasks move with it). The folder button moves it under another task or to an exact position.
+        </div>
+      )}
+      {moveErr && (
+        <div className="mb-3">
+          <ErrorBanner message={moveErr} />
+        </div>
+      )}
+
       {tasks.error && <ErrorBanner message={tasks.error} onRetry={tasks.reload} />}
       {tasks.loading && !tasks.data && <Loading />}
 
       {tasks.data && view === 'gantt' && (
         <div className={cls(tasks.refreshing && 'opacity-60')}>
-          <Gantt tasks={filtered} today={today} collapsed={collapsed} onToggle={toggle} onSelect={(t) => setSelected(t.id)} selectedId={selected} pxPerDay={zoom} compact={compact} />
+          <Gantt tasks={filtered} today={today} collapsed={collapsed} onToggle={toggle} onSelect={(t) => setSelected(t.id)} selectedId={selected} pxPerDay={zoom} compact={compact} rowEnd={controls} />
           <p className="mt-2 text-xs text-ink-3">Bars show the planned window with the filled portion as actual progress. The thin dark line under a bar is the actual start to finish. Click a task for details.</p>
         </div>
       )}
@@ -119,7 +174,8 @@ export default function PlanPage() {
           <Table>
             <thead>
               <tr>
-                <th className={th}>Task</th>
+                {controls && <th className={cls(th, 'w-px px-2 sm:px-3')} aria-label="Reorder" />}
+                <th className={cls(th, 'min-w-[220px]')}>Task</th>
                 <th className={th}>Floor</th>
                 <th className={th}>PIC</th>
                 <th className={th}>Planned</th>
@@ -132,6 +188,7 @@ export default function PlanPage() {
             <tbody>
               {filtered.map((t) => (
                 <tr key={t.id} className="cursor-pointer hover:bg-plane" onClick={() => setSelected(t.id)}>
+                  {controls && <td className={cls(td, 'w-px whitespace-nowrap px-2 py-1.5 sm:px-3')}>{controls(t)}</td>}
                   <td className={cls(td, t.hasChildren && 'font-semibold')} style={{ paddingLeft: 16 + Math.min(t.level, 4) * 16 }}>
                     {t.name}
                   </td>
@@ -166,6 +223,16 @@ export default function PlanPage() {
             setAdding(false)
             await tasks.reload()
             setSelected(t.id)
+          }}
+        />
+      )}
+      {movingId !== null && (
+        <MoveTaskModal
+          taskId={movingId}
+          onClose={() => setMovingId(null)}
+          onMoved={(list) => {
+            setMovingId(null)
+            tasks.setData(list)
           }}
         />
       )}

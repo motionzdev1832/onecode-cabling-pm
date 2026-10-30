@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ClipboardList, Plus, Trash2 } from 'lucide-react'
+import { ClipboardList, FolderInput, Plus, Trash2 } from 'lucide-react'
 import type { DailyLog, ScopeItem, TaskView } from '@shared/types'
 import { api, errorMessage } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
@@ -8,6 +8,7 @@ import { useFetch } from '@/lib/hooks'
 import { cls, floorLabel, fmtDate, fmtNum, fmtPct } from '@/lib/format'
 import { Button, ConfirmDialog, ErrorBanner, Field, Input, Loading, Meter, Modal, Select, TaskStatusBadge, Textarea } from './ui'
 import AddTaskModal from './AddTaskModal'
+import MoveTaskModal from './MoveTaskModal'
 
 interface Props {
   taskId: number | null
@@ -42,12 +43,14 @@ export default function TaskDetail({ taskId, scopeItems, onClose, onChanged }: P
   const [err, setErr] = useState<string | null>(null)
   const [addingSub, setAddingSub] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [moving, setMoving] = useState(false)
 
   useEffect(() => {
     setEditing(false)
     setErr(null)
     setAddingSub(false)
     setConfirmDelete(false)
+    setMoving(false)
   }, [taskId])
 
   const remove = async () => {
@@ -161,6 +164,11 @@ export default function TaskDetail({ taskId, scopeItems, onClose, onChanged }: P
               {task.parentId !== null && !task.hasChildren && (
                 <Button variant="danger" onClick={() => setConfirmDelete(true)} loading={saving}>
                   <Trash2 className="h-4 w-4" /> Delete
+                </Button>
+              )}
+              {task.parentId !== null && (
+                <Button onClick={() => setMoving(true)} title="Move this task under another task or to another position">
+                  <FolderInput className="h-4 w-4" /> Move…
                 </Button>
               )}
               {task.status === 'not_started' || task.hasChildren ? (
@@ -326,6 +334,17 @@ export default function TaskDetail({ taskId, scopeItems, onClose, onChanged }: P
               onClose={() => setAddingSub(false)}
               onSaved={async () => {
                 setAddingSub(false)
+                await reload()
+                onChanged()
+              }}
+            />
+          )}
+          {moving && (
+            <MoveTaskModal
+              taskId={task.id}
+              onClose={() => setMoving(false)}
+              onMoved={async () => {
+                setMoving(false)
                 await reload()
                 onChanged()
               }}

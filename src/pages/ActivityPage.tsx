@@ -16,6 +16,7 @@ const actionLabel: Record<string, string> = {
   logout: 'Signed out',
   login_failed: 'Failed sign-in',
   password_change: 'Password',
+  move: 'Moved',
 }
 const actionTone: Record<string, Tone> = {
   create: 'good',
@@ -26,6 +27,7 @@ const actionTone: Record<string, Tone> = {
   logout: 'neutral',
   login_failed: 'serious',
   password_change: 'warn',
+  move: 'accent',
 }
 const entityLabel: Record<string, string> = {
   task: 'Task',
