@@ -103,6 +103,9 @@ export default function SettingsPage() {
               <li>
                 A task is <span className="font-medium text-ink">behind</span> when it is more than 5 points under its planned %, and <span className="font-medium text-ink">late</span> when its planned finish has passed and it is not done.
               </li>
+              <li>
+                All dates and clock times are <span className="font-medium text-ink">Thailand time (GMT+7)</span>, whatever timezone your device is set to.
+              </li>
             </ul>
           </Card>
         </div>

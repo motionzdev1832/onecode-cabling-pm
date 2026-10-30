@@ -1,3 +1,4 @@
+import { dateInAppTz } from '@shared/dates'
 import { useState } from 'react'
 import { KeyRound, Pencil, Trash2, UserPlus } from 'lucide-react'
 import type { Role, User } from '@shared/types'
@@ -64,7 +65,7 @@ export default function UsersPage() {
                   <td className={td}>
                     <Badge tone={u.role === 'admin' ? 'accent' : 'neutral'}>{u.role === 'admin' ? 'Admin' : 'Viewer'}</Badge>
                   </td>
-                  <td className={cls(td, 'text-ink-2')}>{fmtDate(u.createdAt.slice(0, 10))}</td>
+                  <td className={cls(td, 'text-ink-2')}>{fmtDate(dateInAppTz(u.createdAt))}</td>
                   <td className={cls(td, 'whitespace-nowrap text-right')}>
                     <button type="button" className="rounded-md p-1.5 text-ink-3 hover:bg-plane hover:text-ink" onClick={() => setEditing(u)} aria-label="Edit">
                       <Pencil className="h-4 w-4" />

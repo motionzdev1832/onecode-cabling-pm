@@ -28,6 +28,7 @@ Roles: **admin** (the PM: full edit) and **viewer** (client: read-only everywher
 - Summary rows, floors and the project = **duration-weighted** average of their leaf tasks.
 - **Planned %** assumes each task progresses evenly from planned start to planned finish, 7 days a week.
 - **Behind** = more than 5 points under planned %. **Late** = planned finish passed and not done.
+- All clock times are shown in **Thailand time (GMT+7)** regardless of the viewer's device; timestamps are stored in UTC.
 
 ## Stack
 

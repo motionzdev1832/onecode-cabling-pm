@@ -7,7 +7,7 @@ import type { DB } from './db'
 import { activityLog, dailyLogItems, dailyLogs, tasks, taskTargets } from './db/schema'
 import type { TaskRow, TaskTarget } from '../shared/types'
 import type { LogItemFlat } from '../shared/progress'
-import { isValidIsoDate, todayIn } from '../shared/dates'
+import { dayBoundsUtc, isValidIsoDate, todayIn } from '../shared/dates'
 
 export const nowIso = () => new Date().toISOString()
 
@@ -121,8 +121,10 @@ export async function queryActivity(db: DB, f: ActivityQuery) {
   if (f.entity) conds.push(eq(activityLog.entity, f.entity))
   if (f.action) conds.push(eq(activityLog.action, f.action))
   if (f.q) conds.push(like(activityLog.summary, `%${f.q.replace(/[%_]/g, '')}%`))
-  if (isValidIsoDate(f.from)) conds.push(gte(activityLog.createdAt, f.from))
-  if (isValidIsoDate(f.to)) conds.push(lte(activityLog.createdAt, f.to + 'T23:59:59.999Z'))
+  // Date filters are Thailand calendar days; timestamps are stored in UTC.
+  const bounds = dayBoundsUtc(isValidIsoDate(f.from) ? f.from : undefined, isValidIsoDate(f.to) ? f.to : undefined)
+  if (bounds.from) conds.push(gte(activityLog.createdAt, bounds.from))
+  if (bounds.to) conds.push(lte(activityLog.createdAt, bounds.to))
   return db
     .select()
     .from(activityLog)

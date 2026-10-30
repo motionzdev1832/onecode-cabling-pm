@@ -1,4 +1,5 @@
 import { FLOORS } from '@shared/types'
+import { APP_TZ } from '@shared/dates'
 import type { IssueCategory, IssueSeverity, IssueStatus, TaskStatus, TodoPriority, TodoStatus } from '@shared/types'
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -22,11 +23,28 @@ export function fmtDateShort(iso: string | null | undefined): string {
   return fmtDate(iso, { year: false })
 }
 
+// Clock times are always rendered in the project timezone (Thailand, GMT+7), whatever the viewer's device is set to.
+const clockParts = new Intl.DateTimeFormat('en-GB', { timeZone: APP_TZ, year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+function clock(iso: string): { y: string; m: number; d: number; hm: string } | null {
+  const dt = new Date(iso)
+  if (Number.isNaN(dt.getTime())) return null
+  const p: Record<string, string> = {}
+  for (const x of clockParts.formatToParts(dt)) p[x.type] = x.value
+  return { y: p.year, m: Number(p.month), d: Number(p.day), hm: `${p.hour}:${p.minute}` }
+}
+
+/** ISO timestamp → "30 Oct 2026, 09:19" in Thailand time. */
 export function fmtDateTime(iso: string | null | undefined): string {
   if (!iso) return '—'
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return iso
-  return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}, ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  const c = clock(iso)
+  return c ? `${c.d} ${MONTHS[c.m - 1]} ${c.y}, ${c.hm}` : iso
+}
+
+/** ISO timestamp → "09:19" in Thailand time. */
+export function fmtTime(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  const c = clock(iso)
+  return c ? c.hm : iso
 }
 
 export function fmtNum(n: number | null | undefined, maxFrac = 1): string {

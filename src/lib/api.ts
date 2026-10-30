@@ -1,3 +1,5 @@
+import { APP_TZ, todayIn } from '@shared/dates'
+
 export class ApiError extends Error {
   status: number
   constructor(status: number, message: string) {
@@ -6,12 +8,9 @@ export class ApiError extends Error {
   }
 }
 
-const pad = (n: number) => String(n).padStart(2, '0')
-
-/** Today's date in the browser's local timezone, as YYYY-MM-DD. */
+/** Today's date in the project timezone (Thailand, GMT+7), as YYYY-MM-DD — the same "today" on every device. */
 export function localToday(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+  return todayIn(APP_TZ)
 }
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {

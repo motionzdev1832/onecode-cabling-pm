@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
 import { Search } from 'lucide-react'
 import type { ActivityEntry } from '@shared/types'
-import { addDays } from '@shared/dates'
+import { addDays, dateInAppTz } from '@shared/dates'
 import { localToday } from '@/lib/api'
 import { useFetch } from '@/lib/hooks'
-import { cls, fmtDateTime } from '@/lib/format'
+import { cls, fmtDate, fmtTime } from '@/lib/format'
 import { Badge, Button, Card, ErrorBanner, Input, Loading, PageHeader, Select, type Tone } from '@/components/ui'
 
 const actionLabel: Record<string, string> = {
@@ -70,7 +70,7 @@ export default function ActivityPage() {
   const grouped = useMemo(() => {
     const m = new Map<string, ActivityEntry[]>()
     for (const a of rows.data ?? []) {
-      const day = a.createdAt.slice(0, 10)
+      const day = dateInAppTz(a.createdAt)
       const arr = m.get(day) ?? []
       arr.push(a)
       m.set(day, arr)
@@ -80,8 +80,8 @@ export default function ActivityPage() {
 
   const exportCsv = () => {
     const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
-    const lines = [['time', 'user', 'action', 'entity', 'entity_id', 'summary'].join(',')]
-    for (const a of rows.data ?? []) lines.push([a.createdAt, a.userName, a.action, a.entity, a.entityId, a.summary].map(esc).join(','))
+    const lines = [['time (GMT+7)', 'time (UTC)', 'user', 'action', 'entity', 'entity_id', 'summary'].join(',')]
+    for (const a of rows.data ?? []) lines.push([`${dateInAppTz(a.createdAt)} ${fmtTime(a.createdAt)}`, a.createdAt, a.userName, a.action, a.entity, a.entityId, a.summary].map(esc).join(','))
     const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const el = document.createElement('a')
@@ -95,7 +95,7 @@ export default function ActivityPage() {
     <div>
       <PageHeader
         title="Audit log"
-        description="Every change and sign-in, who made it and when. Updates list the fields that changed."
+        description="Every change and sign-in, who made it and when (Thailand time, GMT+7). Updates list the fields that changed."
         actions={
           <Button onClick={exportCsv} disabled={!rows.data?.length}>
             Export CSV
@@ -157,11 +157,11 @@ export default function ActivityPage() {
       <div className={cls('space-y-5', rows.refreshing && 'opacity-60')}>
         {grouped.map(([day, list]) => (
           <section key={day}>
-            <h2 className="mb-1.5 text-sm font-semibold text-ink">{fmtDateTime(day + 'T00:00:00').replace(/, .*$/, '')}</h2>
+            <h2 className="mb-1.5 text-sm font-semibold text-ink">{fmtDate(day, { weekday: true })}</h2>
             <div className="divide-y divide-line-2 rounded-xl border border-line bg-white">
               {list.map((a) => (
                 <div key={a.id} className="flex flex-wrap items-start gap-x-3 gap-y-1 px-4 py-2.5 text-sm sm:flex-nowrap">
-                  <span className="tabular w-14 shrink-0 text-xs text-ink-3">{a.createdAt.slice(11, 16)}</span>
+                  <span className="tabular w-14 shrink-0 text-xs text-ink-3">{fmtTime(a.createdAt)}</span>
                   <span className="w-36 shrink-0 truncate font-medium text-ink" title={a.userName ?? ''}>
                     {a.userName ?? '—'}
                   </span>

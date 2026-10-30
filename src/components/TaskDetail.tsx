@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ClipboardList, FolderInput, Plus, Trash2 } from 'lucide-react'
 import { FLOORS, type DailyLog, type Floor, type ScopeItem, type TaskView } from '@shared/types'
-import { api, errorMessage } from '@/lib/api'
+import { api, errorMessage, localToday } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { useFetch } from '@/lib/hooks'
 import { cls, floorLabel, fmtDate, fmtNum, fmtPct } from '@/lib/format'
@@ -132,8 +132,7 @@ export default function TaskDetail({ taskId, scopeItems, onClose, onChanged }: P
     setSaving(true)
     setErr(null)
     try {
-      const today = new Date()
-      const iso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+      const iso = localToday()
       await api.put(`/api/tasks/${task.id}`, { actualFinish: iso, actualStart: task.actualStart ?? iso, manualPercent: task.method === 'manual' ? 100 : undefined })
       await reload()
       onChanged()
