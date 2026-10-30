@@ -54,7 +54,7 @@ export default function ReportPage() {
             </div>
           </header>
 
-          <section className="print-break grid grid-cols-2 gap-3 md:grid-cols-4">
+          <section className={cls('print-break grid grid-cols-2 gap-3', data.floors.length > 2 ? 'md:grid-cols-5' : 'md:grid-cols-4')}>
             <Tile label="Overall progress" value={fmtPct(data.overall.endActual)} sub={`${fmtDelta(data.overall.endActual - data.overall.startActual)} pts this week`} />
             <Tile label="Planned to date" value={fmtPct(data.overall.endPlanned)} sub={`variance ${fmtDelta(data.overall.endActual - data.overall.endPlanned)} pts`} tone={data.overall.endActual - data.overall.endPlanned < -5 ? 'critical' : undefined} />
             {data.floors.map((f) => (

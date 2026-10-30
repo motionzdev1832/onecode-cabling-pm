@@ -1,7 +1,15 @@
 // Types shared between the Pages Functions API and the React client.
 
 export type Role = 'admin' | 'viewer'
-export type Floor = 'FL2' | 'FL3'
+/** Floor codes. UPLINK = work between the two floors (risers / uplinks), not tied to one floor. */
+export const FLOOR_VALUES = ['FL2', 'FL3', 'UPLINK'] as const
+export type Floor = (typeof FLOOR_VALUES)[number]
+/** Floor options in display order, with their labels. */
+export const FLOORS: { value: Floor; label: string }[] = [
+  { value: 'FL2', label: 'Floor 2' },
+  { value: 'FL3', label: 'Floor 3' },
+  { value: 'UPLINK', label: 'Uplink FL2&3' },
+]
 export type TaskStatus = 'not_started' | 'in_progress' | 'done'
 
 export interface User {

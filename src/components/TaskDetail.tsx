@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ClipboardList, FolderInput, Plus, Trash2 } from 'lucide-react'
-import type { DailyLog, ScopeItem, TaskView } from '@shared/types'
+import { FLOORS, type DailyLog, type Floor, type ScopeItem, type TaskView } from '@shared/types'
 import { api, errorMessage } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { useFetch } from '@/lib/hooks'
@@ -19,7 +19,7 @@ interface Props {
 
 type Form = {
   name: string
-  floor: '' | 'FL2' | 'FL3'
+  floor: '' | Floor
   plannedStart: string
   plannedFinish: string
   durationDays: string
@@ -247,8 +247,11 @@ export default function TaskDetail({ taskId, scopeItems, onClose, onChanged }: P
               <Field label="Floor">
                 <Select value={form.floor} onChange={(e) => setForm({ ...form, floor: e.target.value as Form['floor'] })}>
                   <option value="">—</option>
-                  <option value="FL2">Floor 2</option>
-                  <option value="FL3">Floor 3</option>
+                  {FLOORS.map((f) => (
+                    <option key={f.value} value={f.value}>
+                      {f.label}
+                    </option>
+                  ))}
                 </Select>
               </Field>
               <Field label="PIC (person in charge)" hint="Name or team responsible for this task">

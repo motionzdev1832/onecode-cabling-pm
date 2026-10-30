@@ -45,7 +45,7 @@ export const tasks = sqliteTable(
     name: text('name').notNull(),
     level: integer('level').notNull(),
     isSummary: integer('is_summary', { mode: 'boolean' }).notNull().default(false),
-    floor: text('floor', { enum: ['FL2', 'FL3'] }),
+    floor: text('floor', { enum: ['FL2', 'FL3', 'UPLINK'] }),
     durationDays: real('duration_days').notNull(),
     plannedStart: text('planned_start').notNull(),
     plannedFinish: text('planned_finish').notNull(),

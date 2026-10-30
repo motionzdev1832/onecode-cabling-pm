@@ -9,6 +9,7 @@ import { requireAdmin } from '../auth'
 import { describeChanges, idParam, loadProgressInputs, logActivity, logsWithItems, parseBody, rollupSummaryDates, todayFrom } from '../util'
 import { buildTaskViews } from '../../shared/progress'
 import { isoDate } from './project'
+import { FLOOR_VALUES } from '../../shared/types'
 import { outlineAfterMove, subtreeIds, type MoveTarget } from '../taskOrder'
 
 const r = new Hono<AppEnv>()
@@ -43,7 +44,7 @@ r.get('/:id', async (c) => {
 const taskPatch = z
   .object({
     name: z.string().trim().min(1).max(200),
-    floor: z.enum(['FL2', 'FL3']).nullable(),
+    floor: z.enum(FLOOR_VALUES).nullable(),
     durationDays: z.number().positive().max(999),
     plannedStart: isoDate,
     plannedFinish: isoDate,
@@ -101,7 +102,7 @@ r.post('/', requireAdmin, async (c) => {
     z.object({
       parentId: z.number().int().positive(),
       name: z.string().trim().min(1).max(200),
-      floor: z.enum(['FL2', 'FL3']).nullable().optional(),
+      floor: z.enum(FLOOR_VALUES).nullable().optional(),
       pic: z.string().trim().max(80).nullable().optional(),
       durationDays: z.number().positive().max(999),
       plannedStart: isoDate,

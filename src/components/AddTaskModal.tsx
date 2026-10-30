@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { TaskView } from '@shared/types'
+import { FLOORS, type Floor, type TaskView } from '@shared/types'
 import { daysBetween } from '@shared/dates'
 import { api, errorMessage, localToday } from '@/lib/api'
 import { useFetch } from '@/lib/hooks'
@@ -21,7 +21,7 @@ export default function AddTaskModal({ parentId: fixedParent, onClose, onSaved }
   const root = useMemo(() => (tasks.data ?? []).find((t) => t.parentId === null) ?? null, [tasks.data])
   const [parentId, setParentId] = useState<number | null>(fixedParent ?? null)
   const [name, setName] = useState('')
-  const [floor, setFloor] = useState<'' | 'FL2' | 'FL3'>('')
+  const [floor, setFloor] = useState<'' | Floor>('')
   const [start, setStart] = useState(localToday())
   const [finish, setFinish] = useState(localToday())
   const [duration, setDuration] = useState('1')
@@ -137,8 +137,11 @@ export default function AddTaskModal({ parentId: fixedParent, onClose, onSaved }
                 }}
               >
                 <option value="">—</option>
-                <option value="FL2">Floor 2</option>
-                <option value="FL3">Floor 3</option>
+                {FLOORS.map((f) => (
+                  <option key={f.value} value={f.value}>
+                    {f.label}
+                  </option>
+                ))}
               </Select>
             </Field>
             <Field label="PIC (person in charge)" className="col-span-2">

@@ -1,3 +1,4 @@
+import { FLOORS } from '@shared/types'
 import type { IssueCategory, IssueSeverity, IssueStatus, TaskStatus, TodoPriority, TodoStatus } from '@shared/types'
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -64,4 +65,4 @@ export const issueCategoryLabel: Record<IssueCategory, string> = {
   other: 'Other',
 }
 
-export const floorLabel = (f: string | null | undefined) => (f === 'FL2' ? 'Floor 2' : f === 'FL3' ? 'Floor 3' : '—')
+export const floorLabel = (f: string | null | undefined) => FLOORS.find((x) => x.value === f)?.label ?? '—'

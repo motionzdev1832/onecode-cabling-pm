@@ -1,7 +1,8 @@
+import { floorLabel } from './format'
 import type { TaskView } from '@shared/types'
 
 export interface PlanFilter {
-  /** 'all' | 'FL2' | 'FL3' */
+  /** 'all' or a Floor code */
   floor: string
   /** 'all' | 'not_started' | 'in_progress' | 'attention' | 'done' */
   status: string
@@ -43,7 +44,7 @@ export function filterPlanTasks(all: TaskView[], f: PlanFilter): TaskView[] {
 
 export function describePlanFilter(f: PlanFilter): string {
   const parts: string[] = []
-  if (f.floor !== 'all') parts.push(f.floor === 'FL2' ? 'Floor 2' : f.floor === 'FL3' ? 'Floor 3' : f.floor)
+  if (f.floor !== 'all') parts.push(floorLabel(f.floor))
   if (f.status !== 'all') parts.push({ not_started: 'Not started', in_progress: 'In progress', attention: 'Late or behind', done: 'Done' }[f.status] ?? f.status)
   if (f.pic !== 'all') parts.push(f.pic === '' ? 'No PIC assigned' : `PIC ${f.pic}`)
   if (f.q.trim()) parts.push(`"${f.q.trim()}"`)

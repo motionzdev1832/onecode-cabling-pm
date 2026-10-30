@@ -6,15 +6,10 @@ import { dailyLogs, issues, project, todos } from '../db/schema'
 import { loadProgressInputs, logsWithItems, todayFrom } from '../util'
 import { buildTaskViews, leafTasks, weightedPercentOn } from '../../shared/progress'
 import { addDays, isValidIsoDate } from '../../shared/dates'
-import type { Floor, WeeklyReportData } from '../../shared/types'
+import { FLOORS, type WeeklyReportData } from '../../shared/types'
 import { scopeItemsWithProgress } from './scope'
 
 const r = new Hono<AppEnv>()
-
-const FLOORS: { floor: Floor; label: string }[] = [
-  { floor: 'FL2', label: 'Floor 2' },
-  { floor: 'FL3', label: 'Floor 3' },
-]
 
 r.get('/weekly', async (c) => {
   const db = c.var.db
@@ -81,9 +76,10 @@ r.get('/weekly', async (c) => {
     to,
     generatedAt: new Date().toISOString(),
     overall: { startActual: pct(leaves, addDays(from, -1), 'actual'), endActual: pct(leaves, asOf, 'actual'), endPlanned: pct(leaves, to, 'planned') },
-    floors: FLOORS.map(({ floor, label }) => {
+    floors: FLOORS.flatMap(({ value: floor, label }) => {
       const fl = leafTasks(inputs.tasks, floor)
-      return { floor, label, startActual: pct(fl, addDays(from, -1), 'actual'), endActual: pct(fl, asOf, 'actual'), endPlanned: pct(fl, to, 'planned') }
+      if (fl.length === 0) return []
+      return [{ floor, label, startActual: pct(fl, addDays(from, -1), 'actual'), endActual: pct(fl, asOf, 'actual'), endPlanned: pct(fl, to, 'planned') }]
     }),
     items: (await scopeItemsWithProgress(db)).map((it) => ({ ...it, weekQty: weekQtyByItem.get(it.id) ?? 0 })),
     weekLogs: grouped.sort((a, b) => a.task.sortOrder - b.task.sortOrder),

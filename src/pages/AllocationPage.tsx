@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronLeft } from 'lucide-react'
-import type { ScopeItemProgress, TaskView } from '@shared/types'
+import { FLOORS, type Floor, type ScopeItemProgress, type TaskView } from '@shared/types'
 import { api, errorMessage } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { useFetch } from '@/lib/hooks'
@@ -16,7 +16,7 @@ export default function AllocationPage() {
   const items = useFetch<ScopeItemProgress[]>('/api/scope-items')
   const [cells, setCells] = useState<Record<string, string>>({})
   const [dirty, setDirty] = useState<Set<string>>(new Set())
-  const [floor, setFloor] = useState<'all' | 'FL2' | 'FL3'>('all')
+  const [floor, setFloor] = useState<'all' | Floor>('all')
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState<{ tone: 'good' | 'critical'; text: string } | null>(null)
 
@@ -96,10 +96,13 @@ export default function AllocationPage() {
       />
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <Select value={floor} onChange={(e) => setFloor(e.target.value as typeof floor)} className="w-32">
+        <Select value={floor} onChange={(e) => setFloor(e.target.value as typeof floor)} className="w-40">
           <option value="all">All floors</option>
-          <option value="FL2">Floor 2</option>
-          <option value="FL3">Floor 3</option>
+          {FLOORS.map((f) => (
+            <option key={f.value} value={f.value}>
+              {f.label}
+            </option>
+          ))}
         </Select>
         {msg && <Badge tone={msg.tone}>{msg.text}</Badge>}
         {!isAdmin && <span className="text-xs text-ink-3">Read-only: only an admin can change targets.</span>}

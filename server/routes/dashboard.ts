@@ -6,15 +6,10 @@ import { dailyLogs, issues, project, tasks as tasksTable, todos } from '../db/sc
 import { loadProgressInputs, logsWithItems, todayFrom } from '../util'
 import { buildSCurve, buildTaskViews, leafTasks, weightedPercentOn } from '../../shared/progress'
 import { addDays, daysBetween } from '../../shared/dates'
-import type { DashboardData, Floor } from '../../shared/types'
+import { FLOORS, type DashboardData } from '../../shared/types'
 import { scopeItemsWithProgress } from './scope'
 
 const r = new Hono<AppEnv>()
-
-const FLOORS: { floor: Floor; label: string }[] = [
-  { floor: 'FL2', label: 'Floor 2' },
-  { floor: 'FL3', label: 'Floor 3' },
-]
 
 r.get('/', async (c) => {
   const db = c.var.db
@@ -30,14 +25,18 @@ r.get('/', async (c) => {
     actual: weightedPercentOn(leaves, today, today, inputs.targets, inputs.logItems, 'actual'),
     planned: weightedPercentOn(leaves, today, today, inputs.targets, inputs.logItems, 'planned'),
   }
-  const floors = FLOORS.map(({ floor, label }) => {
+  // One tile per floor that actually has leaf tasks (e.g. no Uplink tile until uplink work is in the plan).
+  const floors = FLOORS.flatMap(({ value: floor, label }) => {
     const fl = leafTasks(inputs.tasks, floor)
-    return {
-      floor,
-      label,
-      actual: weightedPercentOn(fl, today, today, inputs.targets, inputs.logItems, 'actual'),
-      planned: weightedPercentOn(fl, today, today, inputs.targets, inputs.logItems, 'planned'),
-    }
+    if (fl.length === 0) return []
+    return [
+      {
+        floor,
+        label,
+        actual: weightedPercentOn(fl, today, today, inputs.targets, inputs.logItems, 'actual'),
+        planned: weightedPercentOn(fl, today, today, inputs.targets, inputs.logItems, 'planned'),
+      },
+    ]
   })
 
   const start = inputs.tasks.reduce((m, t) => (t.plannedStart < m ? t.plannedStart : m), proj.plannedStart)

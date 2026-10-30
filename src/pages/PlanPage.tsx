@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowDown, ArrowUp, ArrowUpDown, Check, FileDown, FolderInput, Grid3x3, Plus, Search } from 'lucide-react'
-import type { ScopeItem, TaskView } from '@shared/types'
+import { FLOORS, type Floor, type ScopeItem, type TaskView } from '@shared/types'
 import { api, errorMessage, localToday } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { useFetch, useLocalState, useMediaQuery } from '@/lib/hooks'
@@ -29,7 +29,7 @@ export default function PlanPage() {
   const [view, setView] = useLocalState<View>('plan.view', 'gantt')
   const [zoom, setZoom] = useLocalState<number>('plan.zoom', 14)
   const [collapsedArr, setCollapsedArr] = useLocalState<number[]>('plan.collapsed', [])
-  const [floor, setFloor] = useState<'all' | 'FL2' | 'FL3'>('all')
+  const [floor, setFloor] = useState<'all' | Floor>('all')
   const [status, setStatus] = useState<StatusFilter>('all')
   const [q, setQ] = useState('')
   const [pic, setPic] = useState<string>('all')
@@ -117,10 +117,13 @@ export default function PlanPage() {
           <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-ink-3" />
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search tasks" className="w-48 pl-8" />
         </div>
-        <Select value={floor} onChange={(e) => setFloor(e.target.value as typeof floor)} className="w-32">
+        <Select value={floor} onChange={(e) => setFloor(e.target.value as typeof floor)} className="w-40">
           <option value="all">All floors</option>
-          <option value="FL2">Floor 2</option>
-          <option value="FL3">Floor 3</option>
+          {FLOORS.map((f) => (
+            <option key={f.value} value={f.value}>
+              {f.label}
+            </option>
+          ))}
         </Select>
         <Select value={status} onChange={(e) => setStatus(e.target.value as StatusFilter)} className="w-40">
           <option value="all">All statuses</option>
